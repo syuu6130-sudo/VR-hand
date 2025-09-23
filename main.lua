@@ -1,36 +1,56 @@
-local VRService = game:GetService("VRService")
+local UserInputService = game:GetService("UserInputService")
+local ContextActionService = game:GetService("ContextActionService")
 local RunService = game:GetService("RunService")
 local player = game.Players.LocalPlayer
 
+-- 視点用（スティック/ジャイロ）
+local yaw, pitch = 0, 0
+
+-- スティック入力で手の向きを変える（Thumbstick2）
+ContextActionService:BindAction("HandControl", function(_, state, input)
+    if state == Enum.UserInputState.Change and input.Position then
+        yaw -= input.Position.X * 0.1
+        pitch = math.clamp(pitch - input.Position.Y * 0.1, -80, 80)
+    end
+end, false, Enum.KeyCode.Thumbstick2)
+
 RunService.RenderStepped:Connect(function()
     local char = player.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root or not VRService.VREnabled then return end
-
-    -- 左腕
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
     local leftUpper = char:FindFirstChild("LeftUpperArm")
     local leftLower = char:FindFirstChild("LeftLowerArm")
     local leftHand = char:FindFirstChild("LeftHand")
-
-    -- 右腕
     local rightUpper = char:FindFirstChild("RightUpperArm")
     local rightLower = char:FindFirstChild("RightLowerArm")
     local rightHand = char:FindFirstChild("RightHand")
+    if not (root and leftUpper and leftLower and leftHand and rightUpper and rightLower and rightHand) then return end
 
-    local function applyIK(upper, lower, hand, handCFrame)
-        if not (upper and lower and hand and handCFrame) then return end
+    -- ジャイロの回転取得（端末傾き）
+    local cf = CFrame.Angles(math.rad(pitch), math.rad(yaw), 0)
+    if UserInputService.GyroscopeEnabled then
+        local gyroRot = UserInputService:GetDeviceRotation()
+        if gyroRot then
+            cf = CFrame.fromOrientation(gyroRot.X, gyroRot.Y, gyroRot.Z)
+        end
+    end
 
-        -- 手首の目標位置
-        local targetCF = root.CFrame * handCFrame
+    local function applyArmIK(upper, lower, hand, targetCF)
+        if not (upper and lower and hand and targetCF) then return end
+        local upperPos = upper.Position
+        local lowerPos = lower.Position
+        local handPos = (root.CFrame * targetCF).Position
 
-        -- 簡易IK: 手首に向かう方向でUpperArm/LowerArmのCFrameを調整
-        upper.CFrame = CFrame.new(upper.Position, targetCF.Position) -- 上腕を手に向ける
-        lower.CFrame = CFrame.new(lower.Position, targetCF.Position) -- 前腕も手に向ける
-        hand.CFrame = targetCF -- 手は正確にCFrameを反映
+        local dir = (handPos - upperPos).Unit
+        local elbowDir = Vector3.new(dir.X, math.clamp(dir.Y, -0.8, 0.8), dir.Z)
+
+        upper.CFrame = CFrame.new(upperPos, upperPos + elbowDir)
+        lower.CFrame = CFrame.new(lowerPos, handPos)
+        hand.CFrame = root.CFrame * targetCF
     end
 
     -- 左腕
-    applyIK(leftUpper, leftLower, leftHand, VRService:GetUserCFrame(Enum.UserCFrame.LeftHand))
+    applyArmIK(leftUpper, leftLower, leftHand, cf)
     -- 右腕
-    applyIK(rightUpper, rightLower, rightHand, VRService:GetUserCFrame(Enum.UserCFrame.RightHand))
+    applyArmIK(rightUpper, rightLower, rightHand, cf)
 end)
