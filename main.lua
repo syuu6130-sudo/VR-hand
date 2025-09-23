@@ -1,15 +1,25 @@
 -- サービス
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UIS = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 
--- Character のロード待機
 local char = player.Character or player.CharacterAdded:Wait()
-char:WaitForChild("Humanoid")
-char:WaitForChild("HumanoidRootPart")
+local humanoid = char:WaitForChild("Humanoid")
 
--- GUI 作成
+-- BodyScale がなければ作成
+for _, name in ipairs({"BodyHeightScale","BodyWidthScale","BodyDepthScale"}) do
+    if not humanoid:FindFirstChild(name) then
+        local val = Instance.new("NumberValue")
+        val.Name = name
+        val.Value = 1
+        val.Parent = humanoid
+    end
+end
+
+local heightScale = humanoid.BodyHeightScale
+local widthScale = humanoid.BodyWidthScale
+local depthScale = humanoid.BodyDepthScale
+
+-- GUI
 local guiParent = game:GetService("CoreGui")
 local ScreenGui = Instance.new("ScreenGui", guiParent)
 ScreenGui.Name = "SizeControlGUI"
@@ -19,21 +29,17 @@ MainFrame.Size = UDim2.new(0, 250, 0, 180)
 MainFrame.Position = UDim2.new(0.3,0,0.4,0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(30,30,30)
 MainFrame.BackgroundTransparency = 0.2
-MainFrame.BorderSizePixel = 0
-MainFrame.ClipsDescendants = true
 MainFrame.Active = true
 MainFrame.Draggable = true
 
--- タイトル
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1,0,0,30)
-Title.Text = "サイズ調整（直接変更）"
+Title.Text = "キャラクターサイズ調整"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 16
 Title.TextColor3 = Color3.fromRGB(255,255,255)
 Title.BackgroundTransparency = 1
 
--- TextBox
 local sizeBox = Instance.new("TextBox", MainFrame)
 sizeBox.Size = UDim2.new(0.8,0,0,30)
 sizeBox.Position = UDim2.new(0.1,0,0.5,0)
@@ -44,7 +50,6 @@ sizeBox.TextSize = 16
 sizeBox.TextColor3 = Color3.fromRGB(255,255,255)
 sizeBox.BackgroundColor3 = Color3.fromRGB(60,60,60)
 
--- 適用ボタン
 local applyBtn = Instance.new("TextButton", MainFrame)
 applyBtn.Size = UDim2.new(0.4,0,0,30)
 applyBtn.Position = UDim2.new(0.3,0,0.75,0)
@@ -56,14 +61,11 @@ applyBtn.TextColor3 = Color3.fromRGB(255,255,255)
 
 -- 適用処理
 applyBtn.MouseButton1Click:Connect(function()
-    local scale = tonumber(sizeBox.Text)
-    if not scale then return end
-    scale = math.clamp(scale, 0.1, 5)
-
-    -- 全パーツに対して Scale を適用
-    for _, part in ipairs(char:GetDescendants()) do
-        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-            part.Size = part.Size * scale / (part.Size.Magnitude / 3) -- 適当に比率調整
-        end
+    local val = tonumber(sizeBox.Text)
+    if val then
+        val = math.clamp(val, 0.1, 5)
+        heightScale.Value = val
+        widthScale.Value = val
+        depthScale.Value = val
     end
 end)
