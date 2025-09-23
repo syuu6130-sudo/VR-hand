@@ -1,23 +1,21 @@
 -- =============================================
--- Roblox Universal Arm & Hat Script (Empyrean-based)
+-- Roblox Universal Arm Script (Executer + Mobile/PC)
 -- Features:
 -- 1. PermanentDeath ON/OFF
 -- 2. Automatic Left/Right Arm reattachment
--- 3. Hat support (free & paid)
--- 4. PC / Mobile control
--- 5. Empyrean reanimation integration
+-- 3. Arm movement via Mouse or Touch
+-- 4. CoreGui Executer対応
 -- =============================================
 
 -- SETTINGS
-local PermanentDeathEnabled = false -- true = PermanentDeath ON, false = OFF
+local PermanentDeathEnabled = false
 local control = "mobile" -- "pc" or "mobile"
 
 -- SERVICES
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local StarterGui = game:GetService("StarterGui")
-
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
@@ -40,6 +38,7 @@ local function FixArms()
         local weld = Instance.new("Motor6D")
         weld.Part0 = humanoid.RootPart
         weld.Part1 = leftArm
+        weld.C0 = CFrame.new(-2,0,0)
         weld.Parent = leftArm
     end
 
@@ -53,37 +52,9 @@ local function FixArms()
         local weld = Instance.new("Motor6D")
         weld.Part0 = humanoid.RootPart
         weld.Part1 = rightArm
+        weld.C0 = CFrame.new(2,0,0)
         weld.Parent = rightArm
     end
-end
-
--- =============================================
--- FUNCTION: Attach Hats (Auto)
--- =============================================
-local function AttachHat(hatId)
-    local success, hat = pcall(function()
-        return game:GetService("InsertService"):LoadAsset(hatId)
-    end)
-    if success and hat then
-        hat.Parent = character
-        local handle = hat:FindFirstChildWhichIsA("BasePart")
-        if handle then
-            local weld = Instance.new("Weld")
-            weld.Part0 = character.Head
-            weld.Part1 = handle
-            weld.C0 = CFrame.new(0,0.5,0)
-            weld.Parent = handle
-        end
-    end
-end
-
--- Example: auto attach free hats
-local freeHats = {
-    3398308134,
-    3443038622
-}
-for _, hatId in ipairs(freeHats) do
-    AttachHat(hatId)
 end
 
 -- =============================================
@@ -91,31 +62,14 @@ end
 -- =============================================
 local function SetupPermanentDeath()
     if PermanentDeathEnabled then
-        -- Original PermanentDeath logic (from Empyrean) goes here
-        print("PermanentDeath is ENABLED")
+        print("PermanentDeath ENABLED")
     else
-        -- Disable death: prevent humanoid from dying
         humanoid.HealthChanged:Connect(function(health)
             if health <= 0 then
                 humanoid.Health = humanoid.MaxHealth
             end
         end)
-        print("PermanentDeath is DISABLED (character survives)")
-    end
-end
-
--- =============================================
--- Empyrean Reanimation Integration
--- =============================================
-local function Reanimate()
-    -- Assuming you have the Empyrean module loaded as "Empyrean"
-    -- This is a placeholder for actual Empyrean reanimation code
-    if _G.EmpyreanLoaded then
-        print("Empyrean already loaded")
-    else
-        _G.EmpyreanLoaded = true
-        -- Insert Empyrean code here or require module
-        print("Empyrean reanimation executed")
+        print("PermanentDeath DISABLED")
     end
 end
 
@@ -124,18 +78,40 @@ end
 -- =============================================
 FixArms()
 SetupPermanentDeath()
-Reanimate()
 
--- OPTIONAL: Mobile / PC controls
-if control == "mobile" then
-    print("Mobile controls activated")
-    -- Add mobile joystick handling here
-elseif control == "pc" then
-    print("PC controls activated")
-    -- Add keyboard/mouse handling here
+-- =============================================
+-- Arm Movement Handling
+-- =============================================
+local leftArm = character:FindFirstChild("Left Arm")
+local rightArm = character:FindFirstChild("Right Arm")
+
+local function MoveArm(arm, targetPos)
+    if arm and targetPos then
+        arm.CFrame = CFrame.new(targetPos)
+    end
 end
 
--- Keep arms fixed every frame (prevents hats/animations from hiding them)
+-- PC or Touch
+RunService.RenderStepped:Connect(function()
+    local mousePos = UserInputService:GetMouseLocation()
+    if control == "pc" then
+        local ray = workspace.CurrentCamera:ScreenPointToRay(mousePos.X, mousePos.Y)
+        local pos = ray.Origin + ray.Direction * 5
+        MoveArm(leftArm, pos)
+        MoveArm(rightArm, pos)
+    elseif control == "mobile" then
+        -- タッチ入力があれば取得
+        local touches = UserInputService:GetTouches()
+        for _, t in pairs(touches) do
+            local ray = workspace.CurrentCamera:ScreenPointToRay(t.Position.X, t.Position.Y)
+            local pos = ray.Origin + ray.Direction * 5
+            MoveArm(leftArm, pos)
+            MoveArm(rightArm, pos)
+        end
+    end
+end)
+
+-- Keep arms fixed every frame
 RunService.RenderStepped:Connect(FixArms)
 
-print("Universal Arm & Hat Script loaded successfully")
+print("Universal Arm Script (Executer) loaded successfully")
