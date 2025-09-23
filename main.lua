@@ -1,164 +1,323 @@
--- 🖥️ 豪華多機能GUI
--- 作者: syuu用 特別版
+-- 🌈 Blade Ball おしゃれGUI（UIデザイン部分）
 
+-- サービス
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
 
--- 🪟 GUI作成
-local ScreenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+-- メインUIフレーム
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+ScreenGui.Name = "BladeBallUI"
+ScreenGui.ResetOnSpawn = false
+
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 320, 0, 420)
-MainFrame.Position = UDim2.new(0.3, 0, 0.3, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-MainFrame.BackgroundTransparency = 0.15
+MainFrame.Size = UDim2.new(0, 300, 0, 400)
+MainFrame.Position = UDim2.new(0.35, 0, 0.2, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.BackgroundTransparency = 0.2
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
 MainFrame.ClipsDescendants = true
-MainFrame.Name = "MainUI"
 
-local UICorner = Instance.new("UICorner", MainFrame)
-UICorner.CornerRadius = UDim.new(0, 16)
-
-local UIStroke = Instance.new("UIStroke", MainFrame)
-UIStroke.Thickness = 2
-UIStroke.Color = Color3.fromRGB(200, 200, 255)
+-- 丸角と影
+local corner = Instance.new("UICorner", MainFrame)
+corner.CornerRadius = UDim.new(0, 16)
+local shadow = Instance.new("ImageLabel", MainFrame)
+shadow.Name = "Shadow"
+shadow.ZIndex = -1
+shadow.Position = UDim2.new(0, -20, 0, -20)
+shadow.Size = UDim2.new(1, 40, 1, 40)
+shadow.Image = "rbxassetid://1316045217"
+shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+shadow.ImageTransparency = 0.6
+shadow.ScaleType = Enum.ScaleType.Slice
+shadow.SliceCenter = Rect.new(10, 10, 118, 118)
 
 -- タイトルバー
-local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(1, -40, 0, 40)
-Title.Position = UDim2.new(0, 10, 0, 0)
-Title.BackgroundTransparency = 1
-Title.Text = "⚙ 多機能チートパネル"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.Font = Enum.Font.FredokaOne
-Title.TextSize = 20
-Title.TextXAlignment = Enum.TextXAlignment.Left
+local TitleBar = Instance.new("Frame", MainFrame)
+TitleBar.Size = UDim2.new(1, 0, 0, 40)
+TitleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+TitleBar.BorderSizePixel = 0
+local TitleCorner = Instance.new("UICorner", TitleBar)
+TitleCorner.CornerRadius = UDim.new(0, 16)
+
+local TitleLabel = Instance.new("TextLabel", TitleBar)
+TitleLabel.Size = UDim2.new(1, -40, 1, 0)
+TitleLabel.Position = UDim2.new(0, 10, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "⚔️ Blade Ball ツール"
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextSize = 18
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 
 -- 最小化ボタン
-local MinimizeButton = Instance.new("TextButton", MainFrame)
+local MinimizeButton = Instance.new("TextButton", TitleBar)
 MinimizeButton.Size = UDim2.new(0, 30, 0, 30)
-MinimizeButton.Position = UDim2.new(1, -35, 0, 5)
-MinimizeButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-MinimizeButton.Text = "-"
-MinimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-MinimizeButton.Font = Enum.Font.SourceSansBold
-MinimizeButton.TextSize = 20
+MinimizeButton.Position = UDim2.new(1, -35, 0.5, -15)
+MinimizeButton.BackgroundTransparency = 1
+MinimizeButton.Text = "―"
+MinimizeButton.Font = Enum.Font.GothamBold
+MinimizeButton.TextSize = 18
+MinimizeButton.TextColor3 = Color3.fromRGB(200, 200, 200)
 
-local Minimized = false
+-- 中身用コンテナ
+local ContentFrame = Instance.new("Frame", MainFrame)
+ContentFrame.Position = UDim2.new(0, 0, 0, 40)
+ContentFrame.Size = UDim2.new(1, 0, 1, -40)
+ContentFrame.BackgroundTransparency = 1
+
+-- ボタン作成関数
+local function createButton(name)
+	local btn = Instance.new("TextButton", ContentFrame)
+	btn.Size = UDim2.new(1, -20, 0, 40)
+	btn.Position = UDim2.new(0, 10, 0, (#ContentFrame:GetChildren()-1) * 45 + 10)
+	btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+	btn.Text = name
+	btn.Font = Enum.Font.Gotham
+	btn.TextSize = 16
+	btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	
+	local btnCorner = Instance.new("UICorner", btn)
+	btnCorner.CornerRadius = UDim.new(0, 10)
+	
+	btn.MouseEnter:Connect(function()
+		btn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+	end)
+	btn.MouseLeave:Connect(function()
+		btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+	end)
+	
+	return btn
+end
+
+-- デモ用ボタン（後で機能を入れる）
+createButton("🎯 オートエイム")
+createButton("🛡 自動パリィ（近距離）")
+createButton("⚡ 自動パリィ（即反応）")
+createButton("👀 ESP")
+createButton("✨ 無敵（Godモード）")
+
+-- 最小化動作
+local minimized = false
 MinimizeButton.MouseButton1Click:Connect(function()
-	Minimized = not Minimized
-	if Minimized then
-		MainFrame:TweenSize(UDim2.new(0, 320, 0, 40), "Out", "Quad", 0.3)
+	minimized = not minimized
+	if minimized then
+		ContentFrame.Visible = false
+		MainFrame:TweenSize(UDim2.new(0, 300, 0, 40), "Out", "Quad", 0.3, true)
 	else
-		MainFrame:TweenSize(UDim2.new(0, 320, 0, 420), "Out", "Quad", 0.3)
+		ContentFrame.Visible = true
+		MainFrame:TweenSize(UDim2.new(0, 300, 0, 400), "Out", "Quad", 0.3, true)
+	end
+end)
+-- ⚔️ Blade Ball GUI - フル機能版
+
+-- サービス取得
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local UIS = game:GetService("UserInputService")
+
+-- メインUI
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+ScreenGui.Name = "BladeBallUI"
+ScreenGui.ResetOnSpawn = false
+
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 300, 0, 400)
+MainFrame.Position = UDim2.new(0.35, 0, 0.2, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.BackgroundTransparency = 0.2
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.ClipsDescendants = true
+
+local corner = Instance.new("UICorner", MainFrame)
+corner.CornerRadius = UDim.new(0, 16)
+local shadow = Instance.new("ImageLabel", MainFrame)
+shadow.ZIndex = -1
+shadow.Position = UDim2.new(0, -20, 0, -20)
+shadow.Size = UDim2.new(1, 40, 1, 40)
+shadow.Image = "rbxassetid://1316045217"
+shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+shadow.ImageTransparency = 0.6
+shadow.ScaleType = Enum.ScaleType.Slice
+shadow.SliceCenter = Rect.new(10, 10, 118, 118)
+
+local TitleBar = Instance.new("Frame", MainFrame)
+TitleBar.Size = UDim2.new(1, 0, 0, 40)
+TitleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+TitleBar.BorderSizePixel = 0
+local TitleCorner = Instance.new("UICorner", TitleBar)
+TitleCorner.CornerRadius = UDim.new(0, 16)
+
+local TitleLabel = Instance.new("TextLabel", TitleBar)
+TitleLabel.Size = UDim2.new(1, -40, 1, 0)
+TitleLabel.Position = UDim2.new(0, 10, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "⚔️ Blade Ball ツール"
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextSize = 18
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local MinimizeButton = Instance.new("TextButton", TitleBar)
+MinimizeButton.Size = UDim2.new(0, 30, 0, 30)
+MinimizeButton.Position = UDim2.new(1, -35, 0.5, -15)
+MinimizeButton.BackgroundTransparency = 1
+MinimizeButton.Text = "―"
+MinimizeButton.Font = Enum.Font.GothamBold
+MinimizeButton.TextSize = 18
+MinimizeButton.TextColor3 = Color3.fromRGB(200, 200, 200)
+
+local ContentFrame = Instance.new("Frame", MainFrame)
+ContentFrame.Position = UDim2.new(0, 0, 0, 40)
+ContentFrame.Size = UDim2.new(1, 0, 1, -40)
+ContentFrame.BackgroundTransparency = 1
+
+local minimized = false
+MinimizeButton.MouseButton1Click:Connect(function()
+	minimized = not minimized
+	if minimized then
+		ContentFrame.Visible = false
+		MainFrame:TweenSize(UDim2.new(0, 300, 0, 40), "Out", "Quad", 0.3, true)
+	else
+		ContentFrame.Visible = true
+		MainFrame:TweenSize(UDim2.new(0, 300, 0, 400), "Out", "Quad", 0.3, true)
 	end
 end)
 
--- 🖲 ボタン生成関数
-local function createButton(name, y, callback)
-	local Button = Instance.new("TextButton", MainFrame)
-	Button.Size = UDim2.new(0.9, 0, 0, 40)
-	Button.Position = UDim2.new(0.05, 0, 0, y)
-	Button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-	Button.Text = name
-	Button.TextColor3 = Color3.fromRGB(255, 255, 255)
-	Button.Font = Enum.Font.FredokaOne
-	Button.TextSize = 18
+-- トグル状態
+local AutoAim = false
+local AutoParryNear = false
+local AutoParryInstant = false
+local ESP = false
+local God = false
 
-	local corner = Instance.new("UICorner", Button)
-	corner.CornerRadius = UDim.new(0, 8)
+-- ボタン作成関数
+local function createButton(name, callback)
+	local btn = Instance.new("TextButton", ContentFrame)
+	btn.Size = UDim2.new(1, -20, 0, 40)
+	btn.Position = UDim2.new(0, 10, 0, (#ContentFrame:GetChildren()-1) * 45 + 10)
+	btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+	btn.Text = name.."：OFF"
+	btn.Font = Enum.Font.Gotham
+	btn.TextSize = 16
+	btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 
-	local stroke = Instance.new("UIStroke", Button)
-	stroke.Thickness = 1
-	stroke.Color = Color3.fromRGB(150,150,255)
+	local btnCorner = Instance.new("UICorner", btn)
+	btnCorner.CornerRadius = UDim.new(0, 10)
 
-	local toggled = false
-	Button.MouseButton1Click:Connect(function()
-		toggled = not toggled
-		Button.BackgroundColor3 = toggled and Color3.fromRGB(60, 100, 255) or Color3.fromRGB(40, 40, 40)
-		callback(toggled)
+	local on = false
+	btn.MouseButton1Click:Connect(function()
+		on = not on
+		btn.Text = name.."："..(on and "ON" or "OFF")
+		btn.BackgroundColor3 = on and Color3.fromRGB(0, 170, 120) or Color3.fromRGB(60, 60, 60)
+		callback(on)
 	end)
 end
 
+-- 🎯 オートエイム
+createButton("🎯 オートエイム", function(state)
+	AutoAim = state
+end)
+task.spawn(function()
+	while task.wait() do
+		if AutoAim then
+			local ball = workspace:FindFirstChild("Ball")
+			if ball then
+				Camera.CFrame = CFrame.new(Camera.CFrame.Position, ball.Position)
+			end
+		end
+	end
+end)
+
 -- 🛡 自動パリィ（近距離）
-createButton("🛡 自動パリィ（近距離）", 50, function(enabled)
-	if enabled then
-		print("近距離パリィ: ON")
-	else
-		print("近距離パリィ: OFF")
+createButton("🛡 自動パリィ（近距離）", function(state)
+	AutoParryNear = state
+end)
+task.spawn(function()
+	while task.wait(0.1) do
+		if AutoParryNear and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+			local ball = workspace:FindFirstChild("Ball")
+			if ball and (ball.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude < 15 then
+				local remote = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+				if remote and remote:FindFirstChild("Parry") then
+					remote.Parry:FireServer()
+				end
+			end
+		end
 	end
 end)
 
 -- ⚡ 自動パリィ（即反応）
-createButton("⚡ 自動パリィ（即反応）", 100, function(enabled)
-	if enabled then
-		print("即反応パリィ: ON")
-	else
-		print("即反応パリィ: OFF")
+createButton("⚡ 自動パリィ（即反応）", function(state)
+	AutoParryInstant = state
+end)
+task.spawn(function()
+	while task.wait(0.05) do
+		if AutoParryInstant then
+			local ball = workspace:FindFirstChild("Ball")
+			if ball and ball.AssemblyLinearVelocity.Magnitude > 60 then
+				local remote = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+				if remote and remote:FindFirstChild("Parry") then
+					remote.Parry:FireServer()
+				end
+			end
+		end
+	end
+end)
+
+-- 👀 ESP
+createButton("👀 ESP", function(state)
+	ESP = state
+	if not state then
+		for _, v in ipairs(workspace:GetChildren()) do
+			if v:FindFirstChild("ESP") then v.ESP:Destroy() end
+		end
+	end
+end)
+task.spawn(function()
+	while task.wait(1) do
+		if ESP then
+			for _, plr in ipairs(Players:GetPlayers()) do
+				if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+					if not plr.Character:FindFirstChild("ESP") then
+						local billboard = Instance.new("BillboardGui", plr.Character)
+						billboard.Name = "ESP"
+						billboard.Adornee = plr.Character.HumanoidRootPart
+						billboard.Size = UDim2.new(0, 100, 0, 50)
+						billboard.AlwaysOnTop = true
+						local text = Instance.new("TextLabel", billboard)
+						text.Size = UDim2.new(1,0,1,0)
+						text.BackgroundTransparency = 1
+						text.Text = plr.Name
+						text.TextColor3 = Color3.fromRGB(255, 0, 0)
+						text.TextStrokeTransparency = 0
+						text.TextScaled = true
+					end
+				end
+			end
+		end
 	end
 end)
 
 -- ✨ 無敵（Godモード）
-createButton("✨ 無敵（Godモード）", 150, function(enabled)
-	if enabled then
-		if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-			LocalPlayer.Character.Humanoid.MaxHealth = math.huge
-			LocalPlayer.Character.Humanoid.Health = math.huge
-		end
-	else
-		if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-			LocalPlayer.Character.Humanoid.MaxHealth = 100
-			LocalPlayer.Character.Humanoid.Health = 100
-		end
-	end
-end)
+createButton("✨ 無敵（Godモード）", function(state)
+	God = state
+	local char = LocalPlayer.Character
+	if not char then return end
+	local humanoid = char:FindFirstChild("Humanoid")
+	if not humanoid then return end
 
--- 🦘 スーパージャンプ
-createButton("🦘 スーパージャンプ", 200, function(enabled)
-	if enabled then
-		LocalPlayer.Character.Humanoid.JumpPower = 200
+	if state then
+		humanoid.Name = "GodHumanoid"
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+		humanoid.Health = humanoid.MaxHealth
 	else
-		LocalPlayer.Character.Humanoid.JumpPower = 50
-	end
-end)
-
--- ⚡ 超スピード
-createButton("⚡ 超スピード", 250, function(enabled)
-	if enabled then
-		LocalPlayer.Character.Humanoid.WalkSpeed = 100
-	else
-		LocalPlayer.Character.Humanoid.WalkSpeed = 16
-	end
-end)
-
--- 🪄 エイムアシスト
-createButton("🎯 エイムアシスト", 300, function(enabled)
-	if enabled then
-		print("エイムアシスト: ON")
-	else
-		print("エイムアシスト: OFF")
-	end
-end)
-
--- 💨 ワープ（瞬間移動）
-createButton("💨 ワープ（クリック地点へ）", 350, function(enabled)
-	if enabled then
-		print("ワープモードON：画面をクリックして移動")
-		local conn
-		conn = UIS.InputBegan:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 then
-				local mousePos = UIS:GetMouseLocation()
-				local ray = workspace.CurrentCamera:ScreenPointToRay(mousePos.X, mousePos.Y)
-				local raycastResult = workspace:Raycast(ray.Origin, ray.Direction * 1000)
-				if raycastResult and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-					LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(raycastResult.Position)
-				end
-			end
-		end)
-	else
-		print("ワープモードOFF")
+		humanoid.Name = "Humanoid"
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, true)
 	end
 end)
