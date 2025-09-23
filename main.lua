@@ -1,13 +1,12 @@
--- サービス取得
+-- Executer用 LocalPlayer取得
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
-
--- キャラクター取得
 local char = player.Character or player.CharacterAdded:Wait()
 local humanoid = char:WaitForChild("Humanoid")
+local guiParent = player:WaitForChild("PlayerGui")  -- CoreGuiより安全
 
--- BodyScaleがない場合作成
+-- BodyScale作成
 for _, name in ipairs({"BodyHeightScale","BodyWidthScale","BodyDepthScale"}) do
     if not humanoid:FindFirstChild(name) then
         local val = Instance.new("NumberValue")
@@ -22,7 +21,7 @@ local widthScale = humanoid:FindFirstChild("BodyWidthScale")
 local depthScale = humanoid:FindFirstChild("BodyDepthScale")
 
 -- GUI作成
-local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+local ScreenGui = Instance.new("ScreenGui", guiParent)
 ScreenGui.Name = "SizeControlGUI"
 
 local MainFrame = Instance.new("Frame", ScreenGui)
@@ -57,11 +56,11 @@ toggleBtn.MouseButton1Click:Connect(function()
     toggleBtn.BackgroundColor3 = active and Color3.fromRGB(0,170,120) or Color3.fromRGB(170,0,0)
 end)
 
--- スライダー（簡易版）
+-- スライダー（TextBox簡易版）
 local slider = Instance.new("TextBox", MainFrame)
 slider.Size = UDim2.new(0.9,0,0,30)
 slider.Position = UDim2.new(0.05,0,0.65,0)
-slider.Text = "1"  -- 初期値
+slider.Text = "1"
 slider.ClearTextOnFocus = false
 slider.TextScaled = true
 
