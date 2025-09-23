@@ -1,76 +1,100 @@
 -- サービス取得
-local VRService = game:GetService("VRService")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local ContextActionService = game:GetService("ContextActionService")
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
 
 local player = Players.LocalPlayer
-local camera = workspace.CurrentCamera
+local character = player.Character or player.CharacterAdded:Wait()
+local root = character:WaitForChild("HumanoidRootPart")
 
--- デバイス判定
-local isVR = VRService and VRService.VREnabled
-local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-local isPC = UserInputService.KeyboardEnabled and not UserInputService.TouchEnabled
+-- 手のパーツを用意
+local leftHand = character:FindFirstChild("LeftHandPart")
+local rightHand = character:FindFirstChild("RightHandPart")
 
--- 視点角度
-local yaw, pitch = 0, 0
-
--- =====================
--- PC操作: マウスで視点回転
--- =====================
-if isPC then
-    UserInputService.InputChanged:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
-        if input.UserInputType == Enum.UserInputType.MouseMovement then
-            yaw = yaw - input.Delta.X * 0.2
-            pitch = math.clamp(pitch - input.Delta.Y * 0.2, -80, 80)
-        end
-    end)
+if not leftHand or not rightHand then
+    warn("LeftHandPart / RightHandPart がキャラクターに存在しません")
+    return
 end
 
--- =====================
--- モバイル操作: スティック & ジャイロ
--- =====================
-if isMobile then
-    -- 右スティック操作
-    ContextActionService:BindAction("LookControl", function(_, state, input)
-        if state == Enum.UserInputState.Change and input.Position then
-            local delta = input.Position
-            yaw = yaw - delta.X * 0.1
-            pitch = math.clamp(pitch - delta.Y * 0.1, -80, 80)
-        end
-    end, true, Enum.KeyCode.Thumbstick2)
+-- 手の位置を保持
+local leftTargetPos = leftHand.Position
+local rightTargetPos = rightHand.Position
 
-    -- ジャイロ対応
-    if UserInputService.GyroscopeEnabled then
-        RunService.RenderStepped:Connect(function()
-            local rot = UserInputService:GetDeviceRotation()
-            if rot then
-                -- 補正が必要な場合あり
-                local _, y, _ = rot:ToEulerAnglesYXZ()
-                yaw = math.deg(y)
-            end
-        end)
-    end
-end
+-- 操作設定
+local isDraggingLeft, isDraggingRight = false, false
 
 -- =====================
--- 毎フレームカメラ更新
+-- PC用マウス操作
 -- =====================
-RunService.RenderStepped:Connect(function()
-    if isVR then
-        -- VRヘッド追従
-        local headCFrame = VRService:GetUserCFrame(Enum.UserCFrame.Head)
-        if headCFrame then
-            camera.CFrame = camera.CFrame * headCFrame
-        end
-    else
-        -- PC/モバイル: キャラクター位置 + yaw/pitch
-        local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-        if root then
-            local camRot = CFrame.Angles(0, math.rad(yaw), 0) * CFrame.Angles(math.rad(pitch), 0, 0)
-            camera.CFrame = CFrame.new(root.Position + Vector3.new(0, 5, 0)) * camRot
+UserInputService.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        local mousePos = UserInputService:GetMouseLocation()
+        local leftDist = (leftHand.Position - workspace.CurrentCamera:ScreenPointToRay(mousePos.X, mousePos.Y).Origin).Magnitude
+        local rightDist = (rightHand.Position - workspace.CurrentCamera:ScreenPointToRay(mousePos.X, mousePos.Y).Origin).Magnitude
+        -- 近い方を選択してドラッグ
+        if leftDist < rightDist then
+            isDraggingLeft = true
+        else
+            isDraggingRight = true
         end
     end
 end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isDraggingLeft = false
+        isDraggingRight = false
+    end
+end)
+
+-- =====================
+-- 毎フレーム更新
+-- =====================
+RunService.RenderStepped:Connect(function()
+    if isDraggingLeft or isDraggingRight then
+        local mouse = UserInputService:GetMouseLocation()
+        local ray = workspace.CurrentCamera:ScreenPointToRay(mouse.X, mouse.Y)
+        local targetPos = ray.Origin + ray.Direction * 5 -- 距離調整
+        if isDraggingLeft then
+            leftHand.Position = targetPos
+        elseif isDraggingRight then
+            rightHand.Position = targetPos
+        end
+    end
+end)
+
+-- =====================
+-- モバイル用（タッチで操作）
+-- =====================
+if UserInputService.TouchEnabled then
+    local activeTouchId
+    UserInputService.TouchMoved:Connect(function(touch)
+        if activeTouchId ~= touch.UserInputType then return end
+        local ray = workspace.CurrentCamera:ScreenPointToRay(touch.Position.X, touch.Position.Y)
+        local targetPos = ray.Origin + ray.Direction * 5
+        if isDraggingLeft then
+            leftHand.Position = targetPos
+        elseif isDraggingRight then
+            rightHand.Position = targetPos
+        end
+    end)
+    
+    UserInputService.TouchStarted:Connect(function(touch)
+        activeTouchId = touch.UserInputType
+        local ray = workspace.CurrentCamera:ScreenPointToRay(touch.Position.X, touch.Position.Y)
+        local targetPos = ray.Origin + ray.Direction * 5
+        local leftDist = (leftHand.Position - targetPos).Magnitude
+        local rightDist = (rightHand.Position - targetPos).Magnitude
+        if leftDist < rightDist then
+            isDraggingLeft = true
+        else
+            isDraggingRight = true
+        end
+    end)
+    
+    UserInputService.TouchEnded:Connect(function(touch)
+        isDraggingLeft = false
+        isDraggingRight = false
+    end)
+end
