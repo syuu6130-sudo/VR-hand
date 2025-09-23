@@ -1,63 +1,26 @@
--- Executer版として動作
+-- プレイヤーの見た目サイズを周期的に変化させるスクリプト
 local Players = game:GetService("Players")
-local UIS = game:GetService("UserInputService")
-local CAS = game:GetService("ContextActionService")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 
--- キャラクターのロード待機
+-- キャラクターのロードを待つ
 local char = player.Character or player.CharacterAdded:Wait()
 local root = char:WaitForChild("HumanoidRootPart")
+local humanoid = char:WaitForChild("Humanoid")
 
--- R15パーツ
-local leftUpper = char:WaitForChild("LeftUpperArm")
-local leftLower = char:WaitForChild("LeftLowerArm")
-local leftHand = char:WaitForChild("LeftHand")
-local rightUpper = char:WaitForChild("RightUpperArm")
-local rightLower = char:WaitForChild("RightLowerArm")
-local rightHand = char:WaitForChild("RightHand")
+-- サイズ変化の設定
+local minScale = 0.5   -- 最小サイズ
+local maxScale = 2.0   -- 最大サイズ
+local speed = 2        -- 変化速度
 
--- 手の回転
-local yaw, pitch = 0, 0
+local t = 0
 
--- タッチスティックで手回転
-local function handleThumbstick(_, state, input)
-    if state == Enum.UserInputState.Change and input.Position then
-        yaw = yaw - input.Position.X * 0.1
-        pitch = math.clamp(pitch - input.Position.Y * 0.1, -80, 80)
-    end
-end
-CAS:BindAction("HandControl", handleThumbstick, false, Enum.KeyCode.Thumbstick2)
-
--- 腕IK関数
-local function applyArmIK(upper, lower, hand, rootCF, targetCF)
-    if not (upper and lower and hand and rootCF and targetCF) then return end
-    local upperPos = upper.Position
-    local lowerPos = lower.Position
-    local handPos = (rootCF * targetCF).Position
-
-    local dir = (handPos - upperPos).Unit
-    local elbowDir = Vector3.new(dir.X, math.clamp(dir.Y, -0.8, 0.8), dir.Z)
-
-    upper.CFrame = CFrame.new(upperPos, upperPos + elbowDir)
-    lower.CFrame = CFrame.new(lowerPos, handPos)
-    hand.CFrame = rootCF * targetCF
-end
-
--- 毎フレーム更新
-RunService.RenderStepped:Connect(function()
-    if not char or not root then return end
-    local cf = CFrame.Angles(math.rad(pitch), math.rad(yaw), 0)
-
-    -- ジャイロが使えるなら上書き
-    if UIS.GyroscopeEnabled then
-        local gyroRot = UIS:GetDeviceRotation()
-        if gyroRot then
-            cf = CFrame.fromOrientation(gyroRot.X, gyroRot.Y, gyroRot.Z)
-        end
-    end
-
-    -- 左右腕IK
-    applyArmIK(leftUpper, leftLower, leftHand, root.CFrame, cf)
-    applyArmIK(rightUpper, rightLower, rightHand, root.CFrame, cf)
+RunService.RenderStepped:Connect(function(delta)
+    if not humanoid then return end
+    t = t + delta * speed
+    local scale = (math.sin(t) + 1) / 2 * (maxScale - minScale) + minScale
+    -- HumanoidのBodyScaleを変更
+    humanoid.BodyHeightScale.Value = scale
+    humanoid.BodyWidthScale.Value = scale
+    humanoid.BodyDepthScale.Value = scale
 end)
