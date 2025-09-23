@@ -4,24 +4,12 @@ local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 
--- Character & Humanoid のロード待機
+-- Character のロード待機
 local char = player.Character or player.CharacterAdded:Wait()
-local humanoid = char:WaitForChild("Humanoid")
+char:WaitForChild("Humanoid")
+char:WaitForChild("HumanoidRootPart")
 
--- BodyScale 作成
-for _, name in ipairs({"BodyHeightScale","BodyWidthScale","BodyDepthScale"}) do
-    if not humanoid:FindFirstChild(name) then
-        local val = Instance.new("NumberValue")
-        val.Name = name
-        val.Value = 1
-        val.Parent = humanoid
-    end
-end
-local heightScale = humanoid.BodyHeightScale
-local widthScale = humanoid.BodyWidthScale
-local depthScale = humanoid.BodyDepthScale
-
--- GUI 作成（Executer対応のため CoreGui）
+-- GUI 作成
 local guiParent = game:GetService("CoreGui")
 local ScreenGui = Instance.new("ScreenGui", guiParent)
 ScreenGui.Name = "SizeControlGUI"
@@ -39,13 +27,13 @@ MainFrame.Draggable = true
 -- タイトル
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1,0,0,30)
-Title.Text = "サイズ調整"
+Title.Text = "サイズ調整（直接変更）"
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 18
+Title.TextSize = 16
 Title.TextColor3 = Color3.fromRGB(255,255,255)
 Title.BackgroundTransparency = 1
 
--- TextBox でサイズ入力
+-- TextBox
 local sizeBox = Instance.new("TextBox", MainFrame)
 sizeBox.Size = UDim2.new(0.8,0,0,30)
 sizeBox.Position = UDim2.new(0.1,0,0.5,0)
@@ -66,13 +54,16 @@ applyBtn.TextSize = 16
 applyBtn.BackgroundColor3 = Color3.fromRGB(0,170,120)
 applyBtn.TextColor3 = Color3.fromRGB(255,255,255)
 
--- TextBox に入力するたびに適用可能
+-- 適用処理
 applyBtn.MouseButton1Click:Connect(function()
-    local val = tonumber(sizeBox.Text)
-    if val then
-        val = math.clamp(val, 0.1, 5) -- 0.1~5倍
-        heightScale.Value = val
-        widthScale.Value = val
-        depthScale.Value = val
+    local scale = tonumber(sizeBox.Text)
+    if not scale then return end
+    scale = math.clamp(scale, 0.1, 5)
+
+    -- 全パーツに対して Scale を適用
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            part.Size = part.Size * scale / (part.Size.Magnitude / 3) -- 適当に比率調整
+        end
     end
 end)
