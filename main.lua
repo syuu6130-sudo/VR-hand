@@ -1,52 +1,36 @@
 local VRService = game:GetService("VRService")
-local UserInputService = game:GetService("UserInputService")
-local ContextActionService = game:GetService("ContextActionService")
 local RunService = game:GetService("RunService")
-
 local player = game.Players.LocalPlayer
-local camera = workspace.CurrentCamera
 
-local isVR = VRService.VREnabled
-local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-local isPC = UserInputService.KeyboardEnabled and not UserInputService.TouchEnabled
-
--- 視点角度
-local yaw, pitch = 0, 0  
-
--- PC: マウスで回転
-if isPC then
-    UserInputService.InputChanged:Connect(function(input, gpe)
-        if gpe then return end
-        if input.UserInputType == Enum.UserInputType.MouseMovement then
-            yaw -= input.Delta.X * 0.2
-            pitch = math.clamp(pitch - input.Delta.Y * 0.2, -80, 80)
-        end
-    end)
-end
-
--- モバイル: スティックで回転
-if isMobile then
-    ContextActionService:BindAction("LookControl", function(_, state, input)
-        if state == Enum.UserInputState.Change and input.Position then
-            yaw -= input.Position.X * 0.1
-            pitch = math.clamp(pitch - input.Position.Y * 0.1, -80, 80)
-        end
-    end, true, Enum.KeyCode.Thumbstick2)
-end
-
--- 毎フレーム更新
 RunService.RenderStepped:Connect(function()
-    local character = player.Character
-    local root = character and character:FindFirstChild("HumanoidRootPart")
+    local char = player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root or not VRService.VREnabled then return end
 
-    if not root then return end
+    -- 左腕
+    local leftUpper = char:FindFirstChild("LeftUpperArm")
+    local leftLower = char:FindFirstChild("LeftLowerArm")
+    local leftHand = char:FindFirstChild("LeftHand")
 
-    if isVR then
-        local headCFrame = VRService:GetUserCFrame(Enum.UserCFrame.Head)
-        camera.CFrame = root.CFrame * headCFrame
-    else
-        local rootPos = root.Position
-        local camRot = CFrame.Angles(0, math.rad(yaw), 0) * CFrame.Angles(math.rad(pitch), 0, 0)
-        camera.CFrame = CFrame.new(rootPos + Vector3.new(0, 5, 0)) * camRot
+    -- 右腕
+    local rightUpper = char:FindFirstChild("RightUpperArm")
+    local rightLower = char:FindFirstChild("RightLowerArm")
+    local rightHand = char:FindFirstChild("RightHand")
+
+    local function applyIK(upper, lower, hand, handCFrame)
+        if not (upper and lower and hand and handCFrame) then return end
+
+        -- 手首の目標位置
+        local targetCF = root.CFrame * handCFrame
+
+        -- 簡易IK: 手首に向かう方向でUpperArm/LowerArmのCFrameを調整
+        upper.CFrame = CFrame.new(upper.Position, targetCF.Position) -- 上腕を手に向ける
+        lower.CFrame = CFrame.new(lower.Position, targetCF.Position) -- 前腕も手に向ける
+        hand.CFrame = targetCF -- 手は正確にCFrameを反映
     end
+
+    -- 左腕
+    applyIK(leftUpper, leftLower, leftHand, VRService:GetUserCFrame(Enum.UserCFrame.LeftHand))
+    -- 右腕
+    applyIK(rightUpper, rightLower, rightHand, VRService:GetUserCFrame(Enum.UserCFrame.RightHand))
 end)
