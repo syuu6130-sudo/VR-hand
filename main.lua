@@ -1,6 +1,5 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UIS = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
 local humanoid = char:WaitForChild("Humanoid")
@@ -32,7 +31,7 @@ MainFrame.BackgroundTransparency = 0.2
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
 
--- ドラッグ可能
+-- GUIドラッグ可能
 MainFrame.Active = true
 MainFrame.Draggable = true
 
@@ -60,44 +59,39 @@ toggleBtn.MouseButton1Click:Connect(function()
     toggleBtn.BackgroundColor3 = active and Color3.fromRGB(0,170,120) or Color3.fromRGB(170,0,0)
 end)
 
--- スライダー本体
-local sliderFrame = Instance.new("Frame", MainFrame)
-sliderFrame.Size = UDim2.new(0.9,0,0,20)
-sliderFrame.Position = UDim2.new(0.05,0,0.65,0)
-sliderFrame.BackgroundColor3 = Color3.fromRGB(80,80,80)
-sliderFrame.BorderSizePixel = 0
+-- サイズ調整用ボタン
+local incrementBtn = Instance.new("TextButton", MainFrame)
+incrementBtn.Size = UDim2.new(0.4,0,0,30)
+incrementBtn.Position = UDim2.new(0.55,0,0.25,0)
+incrementBtn.Text = "サイズ +"
+incrementBtn.Font = Enum.Font.Gotham
+incrementBtn.TextSize = 16
+incrementBtn.BackgroundColor3 = Color3.fromRGB(0,120,170)
 
-local sliderHandle = Instance.new("Frame", sliderFrame)
-sliderHandle.Size = UDim2.new(0,20,1,0)
-sliderHandle.Position = UDim2.new(0,0,0,0)
-sliderHandle.BackgroundColor3 = Color3.fromRGB(0,170,120)
+local decrementBtn = Instance.new("TextButton", MainFrame)
+decrementBtn.Size = UDim2.new(0.4,0,0,30)
+decrementBtn.Position = UDim2.new(0.55,0,0.55,0)
+decrementBtn.Text = "サイズ -"
+decrementBtn.Font = Enum.Font.Gotham
+decrementBtn.TextSize = 16
+decrementBtn.BackgroundColor3 = Color3.fromRGB(170,120,0)
 
--- ドラッグ機能
-local dragging = false
-local sliderWidth = sliderFrame.AbsoluteSize.X
+local step = 0.1
 
-sliderHandle.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
+incrementBtn.MouseButton1Click:Connect(function()
+    if active then
+        local val = math.clamp(heightScale.Value + step, 0.1, 5)
+        heightScale.Value = val
+        widthScale.Value = val
+        depthScale.Value = val
     end
 end)
-sliderHandle.InputEnded:Connect(function(input)
-    dragging = false
-end)
-sliderFrame.InputEnded:Connect(function(input)
-    dragging = false
-end)
-RunService.RenderStepped:Connect(function()
-    if dragging then
-        local mouse = UIS:GetMouseLocation()
-        local framePos = sliderFrame.AbsolutePosition.X
-        local x = math.clamp(mouse.X - framePos - sliderHandle.AbsoluteSize.X/2, 0, sliderFrame.AbsoluteSize.X - sliderHandle.AbsoluteSize.X)
-        sliderHandle.Position = UDim2.new(0, x, 0, 0)
-        local scale = x / (sliderFrame.AbsoluteSize.X - sliderHandle.AbsoluteSize.X) * 2 -- 0~2倍
-        if active then
-            heightScale.Value = scale
-            widthScale.Value = scale
-            depthScale.Value = scale
-        end
+
+decrementBtn.MouseButton1Click:Connect(function()
+    if active then
+        local val = math.clamp(heightScale.Value - step, 0.1, 5)
+        heightScale.Value = val
+        widthScale.Value = val
+        depthScale.Value = val
     end
 end)
