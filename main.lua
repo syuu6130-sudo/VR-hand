@@ -1,117 +1,144 @@
 -- =============================================
--- Roblox Universal Arm Script (Executer + Mobile/PC)
--- Features:
--- 1. PermanentDeath ON/OFF
--- 2. Automatic Left/Right Arm reattachment
--- 3. Arm movement via Mouse or Touch
--- 4. CoreGui Executer対応
--- =============================================
-
 -- SETTINGS
-local PermanentDeathEnabled = false
+-- =============================================
+local PermanentDeathEnabled = false -- true = PermanentDeath ON
 local control = "mobile" -- "pc" or "mobile"
 
+-- =============================================
 -- SERVICES
+-- =============================================
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local CoreGui = game:GetService("CoreGui")
+local RunService = game:GetService("RunService")
+
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
-local rootPart = character:WaitForChild("HumanoidRootPart")
 
 -- =============================================
--- FUNCTION: Ensure Arms Are Visible
+-- FUNCTION: Fix Arms (always visible)
 -- =============================================
 local function FixArms()
-    local leftArm = character:FindFirstChild("Left Arm") or character:FindFirstChild("LeftHand")
-    local rightArm = character:FindFirstChild("Right Arm") or character:FindFirstChild("RightHand")
-
-    if not leftArm then
-        leftArm = Instance.new("Part")
-        leftArm.Name = "Left Arm"
-        leftArm.Size = Vector3.new(1,2,1)
-        leftArm.CanCollide = false
-        leftArm.Anchored = false
-        leftArm.Parent = character
-        local weld = Instance.new("Motor6D")
-        weld.Part0 = humanoid.RootPart
-        weld.Part1 = leftArm
-        weld.C0 = CFrame.new(-2,0,0)
-        weld.Parent = leftArm
-    end
-
-    if not rightArm then
-        rightArm = Instance.new("Part")
-        rightArm.Name = "Right Arm"
-        rightArm.Size = Vector3.new(1,2,1)
-        rightArm.CanCollide = false
-        rightArm.Anchored = false
-        rightArm.Parent = character
-        local weld = Instance.new("Motor6D")
-        weld.Part0 = humanoid.RootPart
-        weld.Part1 = rightArm
-        weld.C0 = CFrame.new(2,0,0)
-        weld.Parent = rightArm
-    end
-end
-
--- =============================================
--- FUNCTION: Permanent Death Handling
--- =============================================
-local function SetupPermanentDeath()
-    if PermanentDeathEnabled then
-        print("PermanentDeath ENABLED")
-    else
-        humanoid.HealthChanged:Connect(function(health)
-            if health <= 0 then
-                humanoid.Health = humanoid.MaxHealth
-            end
-        end)
-        print("PermanentDeath DISABLED")
-    end
-end
-
--- =============================================
--- MAIN
--- =============================================
-FixArms()
-SetupPermanentDeath()
-
--- =============================================
--- Arm Movement Handling
--- =============================================
-local leftArm = character:FindFirstChild("Left Arm")
-local rightArm = character:FindFirstChild("Right Arm")
-
-local function MoveArm(arm, targetPos)
-    if arm and targetPos then
-        arm.CFrame = CFrame.new(targetPos)
-    end
-end
-
--- PC or Touch
-RunService.RenderStepped:Connect(function()
-    local mousePos = UserInputService:GetMouseLocation()
-    if control == "pc" then
-        local ray = workspace.CurrentCamera:ScreenPointToRay(mousePos.X, mousePos.Y)
-        local pos = ray.Origin + ray.Direction * 5
-        MoveArm(leftArm, pos)
-        MoveArm(rightArm, pos)
-    elseif control == "mobile" then
-        -- タッチ入力があれば取得
-        local touches = UserInputService:GetTouches()
-        for _, t in pairs(touches) do
-            local ray = workspace.CurrentCamera:ScreenPointToRay(t.Position.X, t.Position.Y)
-            local pos = ray.Origin + ray.Direction * 5
-            MoveArm(leftArm, pos)
-            MoveArm(rightArm, pos)
+    for _, limbName in pairs({"Left Arm","Right Arm"}) do
+        local arm = character:FindFirstChild(limbName)
+        if not arm then
+            arm = Instance.new("Part")
+            arm.Name = limbName
+            arm.Size = Vector3.new(1,2,1)
+            arm.Anchored = false
+            arm.CanCollide = false
+            arm.BrickColor = BrickColor.new("Pastel brown")
+            arm.Parent = character
+            local weld = Instance.new("Motor6D")
+            weld.Part0 = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
+            weld.Part1 = arm
+            weld.Parent = arm
         end
+    end
+end
+
+-- =============================================
+-- FUNCTION: Mobile Joysticks (left=move, right=arm)
+-- =============================================
+local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+
+local function createStick(side)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0,120,0,120)
+    frame.AnchorPoint = Vector2.new(0.5,0.5)
+    frame.BackgroundColor3 = Color3.fromRGB(50,50,50)
+    frame.BackgroundTransparency = 0.3
+    frame.Parent = screenGui
+
+    if side == "left" then
+        frame.Position = UDim2.new(0.35,0,0.8,0)
+    else
+        frame.Position = UDim2.new(0.65,0,0.8,0)
+    end
+
+    local stick = Instance.new("ImageButton")
+    stick.Size = UDim2.new(0,60,0,60)
+    stick.Position = UDim2.new(0.5,0,0.5,0)
+    stick.AnchorPoint = Vector2.new(0.5,0.5)
+    stick.BackgroundColor3 = Color3.fromRGB(200,200,200)
+    stick.BackgroundTransparency = 0.2
+    stick.AutoButtonColor = false
+    stick.Parent = frame
+
+    return frame, stick
+end
+
+local leftFrame, leftStick = createStick("left")
+local rightFrame, rightStick = createStick("right")
+
+local leftInput = Vector3.zero
+local rightInput = Vector2.zero
+
+-- Drag handling
+local function stickHandler(stick,frame,updateFunc)
+    local dragging = false
+    local center = stick.Position
+
+    stick.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+        end
+    end)
+    stick.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+            stick.Position = center
+            updateFunc(Vector2.zero)
+        end
+    end)
+    stick.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.Touch then
+            local rel = frame.AbsolutePosition + frame.AbsoluteSize/2
+            local offset = Vector2.new(input.Position.X-rel.X, input.Position.Y-rel.Y)
+            local maxDist = frame.AbsoluteSize.X/2
+            if offset.Magnitude > maxDist then
+                offset = offset.Unit*maxDist
+            end
+            stick.Position = UDim2.new(0.5,offset.X,0.5,offset.Y)
+            updateFunc(offset/maxDist)
+        end
+    end)
+end
+
+stickHandler(leftStick,leftFrame,function(vec)
+    leftInput = Vector3.new(vec.X,0,-vec.Y)
+end)
+stickHandler(rightStick,rightFrame,function(vec)
+    rightInput = vec
+end)
+
+-- =============================================
+-- UPDATE LOOP
+-- =============================================
+RunService.RenderStepped:Connect(function()
+    FixArms()
+
+    -- Move character with left stick
+    if leftInput.Magnitude > 0 then
+        local moveDir = (workspace.CurrentCamera.CFrame:VectorToWorldSpace(leftInput))
+        humanoid:Move(moveDir,true)
+    end
+
+    -- Rotate arms with right stick
+    local rightArm = character:FindFirstChild("Right Arm")
+    if rightArm and rightArm:FindFirstChildOfClass("Motor6D") then
+        local joint = rightArm:FindFirstChildOfClass("Motor6D")
+        joint.C0 = CFrame.new(1.5,0,0) * CFrame.Angles(-rightInput.Y*1.2, rightInput.X*1.2, 0)
     end
 end)
 
--- Keep arms fixed every frame
-RunService.RenderStepped:Connect(FixArms)
-
-print("Universal Arm Script (Executer) loaded successfully")
+-- =============================================
+-- PermanentDeath
+-- =============================================
+if not PermanentDeathEnabled then
+    humanoid.HealthChanged:Connect(function(health)
+        if health <= 0 then
+            humanoid.Health = humanoid.MaxHealth
+        end
+    end)
+end
