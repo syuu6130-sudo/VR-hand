@@ -68,12 +68,7 @@ local function createStick(side)
     frame.BackgroundColor3 = Color3.fromRGB(50,50,50)
     frame.BackgroundTransparency = 0.3
     frame.Parent = screenGui
-
-    if side == "left" then
-        frame.Position = UDim2.new(0.35,0,0.8,0)
-    else
-        frame.Position = UDim2.new(0.65,0,0.8,0)
-    end
+    frame.Position = side=="left" and UDim2.new(0.35,0,0.8,0) or UDim2.new(0.65,0,0.8,0)
 
     local stick = Instance.new("ImageButton")
     stick.Size = UDim2.new(0,60,0,60)
@@ -90,26 +85,30 @@ end
 local leftFrame, leftStick = createStick("left")
 local rightFrame, rightStick = createStick("right")
 
+-- =============================================
+-- STICK INPUT HANDLER
+-- =============================================
 local function stickHandler(stick, frame, updateFunc)
-    local dragging = false
+    local draggingStick = false
     local center = stick.Position
+
     stick.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then dragging = true end
+        if input.UserInputType == Enum.UserInputType.Touch then draggingStick = true end
     end)
     stick.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
+            draggingStick = false
             stick.Position = center
             updateFunc(Vector2.zero)
         end
     end)
     stick.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.Touch then
+        if draggingStick and input.UserInputType == Enum.UserInputType.Touch then
             local rel = frame.AbsolutePosition + frame.AbsoluteSize/2
             local offset = Vector2.new(input.Position.X-rel.X, input.Position.Y-rel.Y)
             local maxDist = frame.AbsoluteSize.X/2
             if offset.Magnitude > maxDist then offset = offset.Unit*maxDist end
-            stick.Position = UDim2.new(0.5,offset.X,0.5,offset.Y)
+            stick.Position = UDim2.new(0.5, offset.X, 0.5, offset.Y)
             updateFunc(offset/maxDist)
         end
     end)
@@ -117,6 +116,40 @@ end
 
 stickHandler(leftStick,leftFrame,function(vec) leftInput = vec end)
 stickHandler(rightStick,rightFrame,function(vec) rightInput = vec end)
+
+-- =============================================
+-- DRAGGABLE FRAME (スティック位置を自由に動かせる)
+-- =============================================
+local function makeDraggable(frame)
+    local dragging = false
+    local dragStart = Vector2.zero
+    local startPos = frame.Position
+
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    frame.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.Touch then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+end
+
+makeDraggable(leftFrame)
+makeDraggable(rightFrame)
 
 -- =============================================
 -- UPDATE LOOP (VR風腕)
@@ -127,11 +160,11 @@ RunService.RenderStepped:Connect(function()
         local pitch = -input.Y*sensitivity
         local yaw = input.X*sensitivity
 
-        -- 肩回転
+        -- 肩回転 + 腕を少し後ろに
         local targetShoulder = initC0.Upper * CFrame.Angles(pitch, yaw, 0) * CFrame.new(0,0,-0.2)
         joints.Upper.C0 = joints.Upper.C0:Lerp(targetShoulder, lerpSpeed)
 
-        -- 肘回転（前方に自然に曲げる）
+        -- 肘回転（自然に曲げる）
         local targetElbow = initC0.Lower * CFrame.Angles(pitch/2, yaw/2, 0)
         joints.Lower.C0 = joints.Lower.C0:Lerp(targetElbow, lerpSpeed)
 
