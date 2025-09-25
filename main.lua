@@ -29,16 +29,19 @@ local function FixArms()
             arm.CanCollide = false
             arm.BrickColor = BrickColor.new("Pastel brown")
             arm.Parent = character
-            local weld = Instance.new("Motor6D")
-            weld.Part0 = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
-            weld.Part1 = arm
-            weld.Parent = arm
+            local torso = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
+            if torso then
+                local weld = Instance.new("Motor6D")
+                weld.Part0 = torso
+                weld.Part1 = arm
+                weld.Parent = arm
+            end
         end
     end
 end
 
 -- =============================================
--- FUNCTION: Mobile Joysticks (left=move, right=arm)
+-- FUNCTION: Mobile Joysticks (left=left arm, right=right arm)
 -- =============================================
 local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
 
@@ -71,7 +74,7 @@ end
 local leftFrame, leftStick = createStick("left")
 local rightFrame, rightStick = createStick("right")
 
-local leftInput = Vector3.zero
+local leftInput = Vector2.zero
 local rightInput = Vector2.zero
 
 -- Drag handling
@@ -106,11 +109,18 @@ local function stickHandler(stick,frame,updateFunc)
 end
 
 stickHandler(leftStick,leftFrame,function(vec)
-    leftInput = Vector3.new(vec.X,0,-vec.Y)
+    leftInput = vec
 end)
 stickHandler(rightStick,rightFrame,function(vec)
     rightInput = vec
 end)
+
+-- =============================================
+-- ARM CONTROL SETTINGS
+-- =============================================
+local armSensitivity = 1.8
+local rightOffset = CFrame.new(1.0, -0.5, -2) -- 右手を少し左寄り
+local leftOffset  = CFrame.new(-1.0, -0.5, -2) -- 左手を少し右寄り
 
 -- =============================================
 -- UPDATE LOOP
@@ -118,17 +128,18 @@ end)
 RunService.RenderStepped:Connect(function()
     FixArms()
 
-    -- Move character with left stick
-    if leftInput.Magnitude > 0 then
-        local moveDir = (workspace.CurrentCamera.CFrame:VectorToWorldSpace(leftInput))
-        humanoid:Move(moveDir,true)
+    -- 左手操作
+    local leftArm = character:FindFirstChild("Left Arm")
+    if leftArm and leftArm:FindFirstChildOfClass("Motor6D") then
+        local joint = leftArm:FindFirstChildOfClass("Motor6D")
+        joint.C0 = leftOffset * CFrame.Angles(-leftInput.Y*armSensitivity, leftInput.X*armSensitivity, 0)
     end
 
-    -- Rotate arms with right stick
+    -- 右手操作
     local rightArm = character:FindFirstChild("Right Arm")
     if rightArm and rightArm:FindFirstChildOfClass("Motor6D") then
         local joint = rightArm:FindFirstChildOfClass("Motor6D")
-        joint.C0 = CFrame.new(1.5,0,0) * CFrame.Angles(-rightInput.Y*1.2, rightInput.X*1.2, 0)
+        joint.C0 = rightOffset * CFrame.Angles(-rightInput.Y*armSensitivity, rightInput.X*armSensitivity, 0)
     end
 end)
 
@@ -142,3 +153,4 @@ if not PermanentDeathEnabled then
         end
     end)
 end
+
