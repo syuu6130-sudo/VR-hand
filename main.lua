@@ -3,6 +3,8 @@
 -- =============================================
 local PermanentDeathEnabled = false -- true = PermanentDeath ON
 local control = "mobile" -- "pc" or "mobile"
+local sensitivity = 1.2 -- 腕感度
+local lerpSpeed = 0.12 -- 自然な補間速度
 
 -- =============================================
 -- SERVICES
@@ -53,8 +55,6 @@ end
 -- =============================================
 local rightInput = Vector2.zero
 local leftInput = Vector2.zero
-local sensitivity = 1.2 -- 腕感度
-local lerpSpeed = 0.12 -- 自然な補間速度
 
 -- =============================================
 -- CREATE MOBILE STICKS
@@ -68,7 +68,8 @@ local function createStick(side)
     frame.BackgroundColor3 = Color3.fromRGB(50,50,50)
     frame.BackgroundTransparency = 0.3
     frame.Parent = screenGui
-    frame.Position = side=="left" and UDim2.new(0.35,0,0.8,0) or UDim2.new(0.65,0,0.8,0)
+
+    frame.Position = UDim2.new(side=="left" and 0.35 or 0.65,0,0.8,0)
 
     local stick = Instance.new("ImageButton")
     stick.Size = UDim2.new(0,60,0,60)
@@ -86,70 +87,59 @@ local leftFrame, leftStick = createStick("left")
 local rightFrame, rightStick = createStick("right")
 
 -- =============================================
--- STICK INPUT HANDLER
+-- STICK FIX TOGGLE
 -- =============================================
-local function stickHandler(stick, frame, updateFunc)
-    local draggingStick = false
+local leftStickFixed = false
+local rightStickFixed = false
+
+local function createStickToggle(name, pos, callback)
+    local btn = Instance.new("TextButton", screenGui)
+    btn.Size = UDim2.new(0,100,0,40)
+    btn.Position = pos
+    btn.Text = name
+    btn.BackgroundColor3 = Color3.fromRGB(80,80,80)
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.AutoButtonColor = true
+
+    btn.MouseButton1Click:Connect(callback)
+end
+
+createStickToggle("左スティック固定", UDim2.new(0.1,0,0.7,0), function() leftStickFixed = not leftStickFixed end)
+createStickToggle("右スティック固定", UDim2.new(0.8,0,0.7,0), function() rightStickFixed = not rightStickFixed end)
+
+-- =============================================
+-- STICK HANDLER
+-- =============================================
+local function stickHandler(stick, frame, updateFunc, fixedRef)
+    local dragging = false
     local center = stick.Position
 
     stick.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then draggingStick = true end
+        if input.UserInputType == Enum.UserInputType.Touch and not fixedRef() then dragging = true end
     end)
     stick.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.Touch then
-            draggingStick = false
-            stick.Position = center
-            updateFunc(Vector2.zero)
+            dragging = false
+            if not fixedRef() then
+                stick.Position = center
+                updateFunc(Vector2.zero)
+            end
         end
     end)
     stick.InputChanged:Connect(function(input)
-        if draggingStick and input.UserInputType == Enum.UserInputType.Touch then
+        if dragging and input.UserInputType == Enum.UserInputType.Touch then
             local rel = frame.AbsolutePosition + frame.AbsoluteSize/2
             local offset = Vector2.new(input.Position.X-rel.X, input.Position.Y-rel.Y)
             local maxDist = frame.AbsoluteSize.X/2
             if offset.Magnitude > maxDist then offset = offset.Unit*maxDist end
-            stick.Position = UDim2.new(0.5, offset.X, 0.5, offset.Y)
+            stick.Position = UDim2.new(0.5,offset.X,0.5,offset.Y)
             updateFunc(offset/maxDist)
         end
     end)
 end
 
-stickHandler(leftStick,leftFrame,function(vec) leftInput = vec end)
-stickHandler(rightStick,rightFrame,function(vec) rightInput = vec end)
-
--- =============================================
--- DRAGGABLE FRAME (スティック位置を自由に動かせる)
--- =============================================
-local function makeDraggable(frame)
-    local dragging = false
-    local dragStart = Vector2.zero
-    local startPos = frame.Position
-
-    frame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = frame.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    end)
-    frame.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.Touch then
-            local delta = input.Position - dragStart
-            frame.Position = UDim2.new(
-                startPos.X.Scale, startPos.X.Offset + delta.X,
-                startPos.Y.Scale, startPos.Y.Offset + delta.Y
-            )
-        end
-    end)
-end
-
-makeDraggable(leftFrame)
-makeDraggable(rightFrame)
+stickHandler(leftStick,leftFrame,function(vec) leftInput=vec end,function() return leftStickFixed end)
+stickHandler(rightStick,rightFrame,function(vec) rightInput=vec end,function() return rightStickFixed end)
 
 -- =============================================
 -- UPDATE LOOP (VR風腕)
@@ -161,10 +151,10 @@ RunService.RenderStepped:Connect(function()
         local yaw = input.X*sensitivity
 
         -- 肩回転 + 腕を少し後ろに
-        local targetShoulder = initC0.Upper * CFrame.Angles(pitch, yaw, 0) * CFrame.new(0,0,-0.2)
+        local targetShoulder = initC0.Upper * CFrame.Angles(pitch, yaw, 0) * CFrame.new(0,0,-0.3)
         joints.Upper.C0 = joints.Upper.C0:Lerp(targetShoulder, lerpSpeed)
 
-        -- 肘回転（自然に曲げる）
+        -- 肘回転（自然に前方）
         local targetElbow = initC0.Lower * CFrame.Angles(pitch/2, yaw/2, 0)
         joints.Lower.C0 = joints.Lower.C0:Lerp(targetElbow, lerpSpeed)
 
