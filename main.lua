@@ -10,35 +10,23 @@ local control = "mobile" -- "pc" or "mobile"
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 
 -- =============================================
--- FUNCTION: Fix Arms (always visible)
+-- INITIALIZE ARMS
 -- =============================================
-local function FixArms()
-    for _, limbName in pairs({"Left Arm","Right Arm"}) do
-        local arm = character:FindFirstChild(limbName)
-        if not arm then
-            arm = Instance.new("Part")
-            arm.Name = limbName
-            arm.Size = Vector3.new(1,2,1)
-            arm.Anchored = false
-            arm.CanCollide = false
-            arm.BrickColor = BrickColor.new("Pastel brown")
-            arm.Parent = character
-            local weld = Instance.new("Motor6D")
-            weld.Part0 = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
-            weld.Part1 = arm
-            weld.Parent = arm
-        end
-    end
-end
+local rightShoulder = character:WaitForChild("RightUpperArm"):WaitForChild("RightShoulder")
+local leftShoulder = character:WaitForChild("LeftUpperArm"):WaitForChild("LeftShoulder")
+local initRightC0 = rightShoulder.C0
+local initLeftC0 = leftShoulder.C0
+
+local rightInput = Vector2.zero
+local leftInput = Vector2.zero
 
 -- =============================================
--- FUNCTION: Mobile Joysticks (left=left arm, right=right arm)
+-- CREATE MOBILE STICKS
 -- =============================================
 local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
 
@@ -71,11 +59,10 @@ end
 local leftFrame, leftStick = createStick("left")
 local rightFrame, rightStick = createStick("right")
 
-local leftInput = Vector2.zero
-local rightInput = Vector2.zero
-
--- Drag handling
-local function stickHandler(stick,frame,updateFunc)
+-- =============================================
+-- STICK INPUT HANDLER
+-- =============================================
+local function stickHandler(stick, frame, updateFunc)
     local dragging = false
     local center = stick.Position
 
@@ -105,40 +92,21 @@ local function stickHandler(stick,frame,updateFunc)
     end)
 end
 
-stickHandler(leftStick,leftFrame,function(vec)
-    leftInput = vec
-end)
-stickHandler(rightStick,rightFrame,function(vec)
-    rightInput = vec
-end)
+stickHandler(leftStick,leftFrame,function(vec) leftInput = vec end)
+stickHandler(rightStick,rightFrame,function(vec) rightInput = vec end)
 
 -- =============================================
 -- UPDATE LOOP
 -- =============================================
 RunService.RenderStepped:Connect(function()
-    FixArms()
-
-    -- 腕の位置オフセット（Zを -0.5 に調整）
-    local rightOffset = CFrame.new(0.6, -0.5, -0.5)
-    local leftOffset  = CFrame.new(-0.6, -0.5, -0.5)
-
-    -- 右腕制御（右スティック）
-    local rightArm = character:FindFirstChild("Right Arm")
-    if rightArm and rightArm:FindFirstChildOfClass("Motor6D") then
-        local joint = rightArm:FindFirstChildOfClass("Motor6D")
-        joint.C0 = rightOffset * CFrame.Angles(-rightInput.Y*1.5, rightInput.X*1.5, 0)
-    end
-
-    -- 左腕制御（左スティック）
-    local leftArm = character:FindFirstChild("Left Arm")
-    if leftArm and leftArm:FindFirstChildOfClass("Motor6D") then
-        local joint = leftArm:FindFirstChildOfClass("Motor6D")
-        joint.C0 = leftOffset * CFrame.Angles(-leftInput.Y*1.5, leftInput.X*1.5, 0)
-    end
+    -- 左手回転
+    leftShoulder.C0 = initLeftC0 * CFrame.Angles(-leftInput.Y*1.5, leftInput.X*1.5, 0) * CFrame.new(0,0,-0.5)
+    -- 右手回転
+    rightShoulder.C0 = initRightC0 * CFrame.Angles(-rightInput.Y*1.5, rightInput.X*1.5, 0) * CFrame.new(0,0,-0.5)
 end)
 
 -- =============================================
--- PermanentDeath
+-- PERMANENT DEATH
 -- =============================================
 if not PermanentDeathEnabled then
     humanoid.HealthChanged:Connect(function(health)
