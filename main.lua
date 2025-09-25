@@ -119,8 +119,8 @@ RunService.RenderStepped:Connect(function()
     FixArms()
 
     -- 腕の位置オフセット（Zを -0.8 に調整）
-    local rightOffset = CFrame.new(0.6, -0.5, -0.8)
-    local leftOffset  = CFrame.new(-0.6, -0.5, -0.8)
+    local rightOffset = CFrame.new(0.6, -0.5, -0.5)
+    local leftOffset  = CFrame.new(-0.6, -0.5, -0.5)
 
     -- 右腕制御（右スティック）
     local rightArm = character:FindFirstChild("Right Arm")
