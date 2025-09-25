@@ -2,9 +2,8 @@
 -- SETTINGS
 -- =============================================
 local PermanentDeathEnabled = false
-local armStretch = 2        -- 肩から手首までの伸び倍率
-local sensitivity = 1.5     -- スティック操作感度
-local lerpSpeed = 0.15      -- 補間速度
+local control = "mobile"
+local armStretch = 2 -- 腕を肩から手首まで伸ばす倍率
 
 -- =============================================
 -- SERVICES
@@ -20,15 +19,15 @@ local humanoid = character:WaitForChild("Humanoid")
 -- ARM REFERENCES (R15)
 -- =============================================
 local function getArmJoints(side)
-    local upper = character:FindFirstChild(side.."UpperArm")
-    local lower = character:FindFirstChild(side.."LowerArm")
+    local upperArm = character:FindFirstChild(side.."UpperArm")
+    local lowerArm = character:FindFirstChild(side.."LowerArm")
     local hand = character:FindFirstChild(side.."Hand")
-    if upper and lower and hand then
+    if upperArm and lowerArm and hand then
         return {
-            Upper = upper:FindFirstChild(side.."Shoulder"),
-            Lower = lower:FindFirstChild(side.."Elbow"),
+            Upper = upperArm:FindFirstChild(side.."Shoulder"),
+            Lower = lowerArm:FindFirstChild(side.."Elbow"),
             Hand = hand:FindFirstChild(side.."Wrist"),
-            Parts = {Upper=upper, Lower=lower, Hand=hand}
+            Parts = {Upper=upperArm, Lower=lowerArm, Hand=hand}
         }
     end
 end
@@ -52,13 +51,17 @@ if leftJoints then
 end
 
 -- =============================================
--- MOBILE STICKS
+-- STICK INPUTS
 -- =============================================
 local rightInput = Vector2.zero
 local leftInput = Vector2.zero
+local sensitivity = 1.5
+local lerpSpeed = 0.15
 
+-- =============================================
+-- CREATE MOBILE STICKS
+-- =============================================
 local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
-
 local function createStick(side)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0,120,0,120)
@@ -112,29 +115,31 @@ stickHandler(leftStick,leftFrame,function(vec) leftInput = vec end)
 stickHandler(rightStick,rightFrame,function(vec) rightInput = vec end)
 
 -- =============================================
--- ARM VR NATURAL MOVEMENT
+-- UPDATE LOOP (腕VR)
 -- =============================================
 RunService.RenderStepped:Connect(function()
     local function updateArm(joints,input,initC0)
         if not joints then return end
 
-        local pitch = -input.Y*sensitivity
-        local yaw = input.X*sensitivity
+        local pitch = -input.Y * sensitivity
+        local yaw = input.X * sensitivity
 
-        -- 肩→肘→手首を自然に補間
-        local shoulderTarget = initC0.Upper * CFrame.Angles(pitch,yaw,0) * CFrame.new(0,0,-0.5)
-        joints.Upper.C0 = joints.Upper.C0:Lerp(shoulderTarget, lerpSpeed)
-
-        local elbowTarget = initC0.Lower * CFrame.Angles(pitch/2,yaw/2,0)
-        joints.Lower.C0 = joints.Lower.C0:Lerp(elbowTarget, lerpSpeed)
-
-        local wristTarget = initC0.Hand * CFrame.Angles(pitch/3,yaw/3,0)
-        joints.Hand.C0 = joints.Hand.C0:Lerp(wristTarget, lerpSpeed)
-
-        -- 肩から手首まで自然に伸ばす
+        -- スケールで伸ばす
         for _,part in pairs(joints.Parts) do
             part.Size = Vector3.new(part.Size.X, part.Size.Y*armStretch, part.Size.Z)
         end
+
+        -- 肩
+        local targetShoulder = initC0.Upper * CFrame.Angles(pitch,yaw,0) * CFrame.new(0,0,-0.5)
+        joints.Upper.C0 = joints.Upper.C0:Lerp(targetShoulder, lerpSpeed)
+
+        -- 肘
+        local targetElbow = initC0.Lower * CFrame.Angles(pitch/2, yaw/2, 0)
+        joints.Lower.C0 = joints.Lower.C0:Lerp(targetElbow, lerpSpeed)
+
+        -- 手首
+        local targetWrist = initC0.Hand * CFrame.Angles(pitch/3, yaw/3, 0)
+        joints.Hand.C0 = joints.Hand.C0:Lerp(targetWrist, lerpSpeed)
     end
 
     updateArm(rightJoints,rightInput,{Upper=initC0.RightShoulder,Lower=initC0.RightElbow,Hand=initC0.RightWrist})
