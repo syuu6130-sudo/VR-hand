@@ -29,13 +29,10 @@ local function FixArms()
             arm.CanCollide = false
             arm.BrickColor = BrickColor.new("Pastel brown")
             arm.Parent = character
-            local torso = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
-            if torso then
-                local weld = Instance.new("Motor6D")
-                weld.Part0 = torso
-                weld.Part1 = arm
-                weld.Parent = arm
-            end
+            local weld = Instance.new("Motor6D")
+            weld.Part0 = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
+            weld.Part1 = arm
+            weld.Parent = arm
         end
     end
 end
@@ -116,31 +113,27 @@ stickHandler(rightStick,rightFrame,function(vec)
 end)
 
 -- =============================================
--- ARM CONTROL SETTINGS
--- =============================================
-local armSensitivity = 1.8
--- 修正版オフセット（前に出さない）
-local rightOffset = CFrame.new(0.6, -0.5, 0) -- 少し左寄り
-local leftOffset  = CFrame.new(-0.6, -0.5, 0) -- 少し右寄り
-
--- =============================================
 -- UPDATE LOOP
 -- =============================================
 RunService.RenderStepped:Connect(function()
     FixArms()
 
-    -- 左手操作
-    local leftArm = character:FindFirstChild("Left Arm")
-    if leftArm and leftArm:FindFirstChildOfClass("Motor6D") then
-        local joint = leftArm:FindFirstChildOfClass("Motor6D")
-        joint.C0 = leftOffset * CFrame.Angles(-leftInput.Y*armSensitivity, leftInput.X*armSensitivity, 0)
-    end
+    -- 腕の位置オフセット（Zを -0.8 に調整）
+    local rightOffset = CFrame.new(0.6, -0.5, -0.8)
+    local leftOffset  = CFrame.new(-0.6, -0.5, -0.8)
 
-    -- 右手操作
+    -- 右腕制御（右スティック）
     local rightArm = character:FindFirstChild("Right Arm")
     if rightArm and rightArm:FindFirstChildOfClass("Motor6D") then
         local joint = rightArm:FindFirstChildOfClass("Motor6D")
-        joint.C0 = rightOffset * CFrame.Angles(-rightInput.Y*armSensitivity, rightInput.X*armSensitivity, 0)
+        joint.C0 = rightOffset * CFrame.Angles(-rightInput.Y*1.5, rightInput.X*1.5, 0)
+    end
+
+    -- 左腕制御（左スティック）
+    local leftArm = character:FindFirstChild("Left Arm")
+    if leftArm and leftArm:FindFirstChildOfClass("Motor6D") then
+        local joint = leftArm:FindFirstChildOfClass("Motor6D")
+        joint.C0 = leftOffset * CFrame.Angles(-leftInput.Y*1.5, leftInput.X*1.5, 0)
     end
 end)
 
@@ -154,4 +147,3 @@ if not PermanentDeathEnabled then
         end
     end)
 end
-
