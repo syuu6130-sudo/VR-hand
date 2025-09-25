@@ -25,6 +25,9 @@ local initLeftC0 = leftShoulder.C0
 local rightInput = Vector2.zero
 local leftInput = Vector2.zero
 
+local sensitivity = 1.5   -- VR風の腕感度
+local lerpSpeed = 0.15    -- 補間速度
+
 -- =============================================
 -- CREATE MOBILE STICKS
 -- =============================================
@@ -96,13 +99,16 @@ stickHandler(leftStick,leftFrame,function(vec) leftInput = vec end)
 stickHandler(rightStick,rightFrame,function(vec) rightInput = vec end)
 
 -- =============================================
--- UPDATE LOOP
+-- UPDATE LOOP (VR風腕動作)
 -- =============================================
 RunService.RenderStepped:Connect(function()
-    -- 左手回転
-    leftShoulder.C0 = initLeftC0 * CFrame.Angles(-leftInput.Y*1.5, leftInput.X*1.5, 0) * CFrame.new(0,0,-0.5)
-    -- 右手回転
-    rightShoulder.C0 = initRightC0 * CFrame.Angles(-rightInput.Y*1.5, rightInput.X*1.5, 0) * CFrame.new(0,0,-0.5)
+    -- 左腕
+    local targetLeftC0 = initLeftC0 * CFrame.Angles(-leftInput.Y*sensitivity, leftInput.X*sensitivity, 0) * CFrame.new(0,0,-0.5)
+    leftShoulder.C0 = leftShoulder.C0:Lerp(targetLeftC0, lerpSpeed)
+
+    -- 右腕
+    local targetRightC0 = initRightC0 * CFrame.Angles(-rightInput.Y*sensitivity, rightInput.X*sensitivity, 0) * CFrame.new(0,0,-0.5)
+    rightShoulder.C0 = rightShoulder.C0:Lerp(targetRightC0, lerpSpeed)
 end)
 
 -- =============================================
