@@ -1,9 +1,8 @@
 -- =============================================
 -- SETTINGS
 -- =============================================
-local PermanentDeathEnabled = false
-local control = "mobile"
-local armStretch = 2 -- 腕を肩から手首まで伸ばす倍率
+local PermanentDeathEnabled = false -- true = PermanentDeath ON
+local control = "mobile" -- "pc" or "mobile"
 
 -- =============================================
 -- SERVICES
@@ -11,57 +10,43 @@ local armStretch = 2 -- 腕を肩から手首まで伸ばす倍率
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 
 -- =============================================
--- ARM REFERENCES (R15)
+-- ARM SETUP
 -- =============================================
-local function getArmJoints(side)
-    local upperArm = character:FindFirstChild(side.."UpperArm")
-    local lowerArm = character:FindFirstChild(side.."LowerArm")
-    local hand = character:FindFirstChild(side.."Hand")
-    if upperArm and lowerArm and hand then
-        return {
-            Upper = upperArm:FindFirstChild(side.."Shoulder"),
-            Lower = lowerArm:FindFirstChild(side.."Elbow"),
-            Hand = hand:FindFirstChild(side.."Wrist"),
-            Parts = {Upper=upperArm, Lower=lowerArm, Hand=hand}
-        }
-    end
+local function getArmJoints(char)
+    local joints = {}
+    -- R15パーツ
+    joints.LeftUpper = char:FindFirstChild("LeftUpperArm")
+    joints.LeftLower = char:FindFirstChild("LeftLowerArm")
+    joints.LeftHand = char:FindFirstChild("LeftHand")
+    joints.RightUpper = char:FindFirstChild("RightUpperArm")
+    joints.RightLower = char:FindFirstChild("RightLowerArm")
+    joints.RightHand = char:FindFirstChild("RightHand")
+    return joints
 end
 
-local rightJoints = getArmJoints("Right")
-local leftJoints = getArmJoints("Left")
+local joints = getArmJoints(character)
+
+-- 初期C0を保存
+local initC0 = {
+    LeftUpper = joints.LeftUpper.CFrame,
+    LeftLower = joints.LeftLower.CFrame,
+    LeftHand = joints.LeftHand.CFrame,
+    RightUpper = joints.RightUpper.CFrame,
+    RightLower = joints.RightLower.CFrame,
+    RightHand = joints.RightHand.CFrame
+}
 
 -- =============================================
--- INITIAL C0s
--- =============================================
-local initC0 = {}
-if rightJoints then
-    initC0.RightShoulder = rightJoints.Upper.C0
-    initC0.RightElbow = rightJoints.Lower.C0
-    initC0.RightWrist = rightJoints.Hand.C0
-end
-if leftJoints then
-    initC0.LeftShoulder = leftJoints.Upper.C0
-    initC0.LeftElbow = leftJoints.Lower.C0
-    initC0.LeftWrist = leftJoints.Hand.C0
-end
-
--- =============================================
--- STICK INPUTS
--- =============================================
-local rightInput = Vector2.zero
-local leftInput = Vector2.zero
-local sensitivity = 1.5
-local lerpSpeed = 0.15
-
--- =============================================
--- CREATE MOBILE STICKS
+-- MOBILE JOYSTICKS
 -- =============================================
 local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+
 local function createStick(side)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0,120,0,120)
@@ -69,7 +54,12 @@ local function createStick(side)
     frame.BackgroundColor3 = Color3.fromRGB(50,50,50)
     frame.BackgroundTransparency = 0.3
     frame.Parent = screenGui
-    frame.Position = UDim2.new(side=="left" and 0.35 or 0.65,0,0.8,0)
+
+    if side == "left" then
+        frame.Position = UDim2.new(0.35,0,0.8,0)
+    else
+        frame.Position = UDim2.new(0.65,0,0.8,0)
+    end
 
     local stick = Instance.new("ImageButton")
     stick.Size = UDim2.new(0,60,0,60)
@@ -83,14 +73,20 @@ local function createStick(side)
     return frame, stick
 end
 
-local leftFrame,leftStick = createStick("left")
-local rightFrame,rightStick = createStick("right")
+local leftFrame, leftStick = createStick("left")
+local rightFrame, rightStick = createStick("right")
 
-local function stickHandler(stick, frame, updateFunc)
+local leftInput = Vector2.zero
+local rightInput = Vector2.zero
+
+local function stickHandler(stick,frame,updateFunc)
     local dragging = false
     local center = stick.Position
+
     stick.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then dragging = true end
+        if input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+        end
     end)
     stick.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.Touch then
@@ -104,46 +100,57 @@ local function stickHandler(stick, frame, updateFunc)
             local rel = frame.AbsolutePosition + frame.AbsoluteSize/2
             local offset = Vector2.new(input.Position.X-rel.X, input.Position.Y-rel.Y)
             local maxDist = frame.AbsoluteSize.X/2
-            if offset.Magnitude > maxDist then offset = offset.Unit*maxDist end
+            if offset.Magnitude > maxDist then
+                offset = offset.Unit*maxDist
+            end
             stick.Position = UDim2.new(0.5,offset.X,0.5,offset.Y)
             updateFunc(offset/maxDist)
         end
     end)
 end
 
-stickHandler(leftStick,leftFrame,function(vec) leftInput = vec end)
-stickHandler(rightStick,rightFrame,function(vec) rightInput = vec end)
+stickHandler(leftStick,leftFrame,function(vec)
+    leftInput = vec
+end)
+stickHandler(rightStick,rightFrame,function(vec)
+    rightInput = vec
+end)
 
 -- =============================================
--- UPDATE LOOP (腕VR)
+-- UPDATE LOOP
 -- =============================================
+local armSensitivity = 1.2
+local lerpSpeed = 0.15
+local armStretch = 1.5
+local zOffset = -0.5
+
 RunService.RenderStepped:Connect(function()
-    local function updateArm(joints,input,initC0)
-        if not joints then return end
-
-        local pitch = -input.Y * sensitivity
-        local yaw = input.X * sensitivity
-
-        -- スケールで伸ばす
-        for _,part in pairs(joints.Parts) do
-            part.Size = Vector3.new(part.Size.X, part.Size.Y*armStretch, part.Size.Z)
-        end
-
-        -- 肩
-        local targetShoulder = initC0.Upper * CFrame.Angles(pitch,yaw,0) * CFrame.new(0,0,-0.5)
-        joints.Upper.C0 = joints.Upper.C0:Lerp(targetShoulder, lerpSpeed)
-
-        -- 肘
-        local targetElbow = initC0.Lower * CFrame.Angles(pitch/2, yaw/2, 0)
-        joints.Lower.C0 = joints.Lower.C0:Lerp(targetElbow, lerpSpeed)
-
-        -- 手首
-        local targetWrist = initC0.Hand * CFrame.Angles(pitch/3, yaw/3, 0)
-        joints.Hand.C0 = joints.Hand.C0:Lerp(targetWrist, lerpSpeed)
+    -- 左腕
+    if joints.LeftUpper and joints.LeftLower and joints.LeftHand then
+        local pitch = -leftInput.Y*armSensitivity
+        local yaw = leftInput.X*armSensitivity
+        joints.LeftUpper.CFrame = joints.LeftUpper.CFrame:Lerp(initC0.LeftUpper * CFrame.Angles(pitch/2, yaw/2, 0) * CFrame.new(0,0,zOffset), lerpSpeed)
+        joints.LeftLower.CFrame = joints.LeftLower.CFrame:Lerp(initC0.LeftLower * CFrame.Angles(pitch/2, yaw/2, 0), lerpSpeed)
+        joints.LeftHand.CFrame = joints.LeftHand.CFrame:Lerp(initC0.LeftHand * CFrame.Angles(pitch/3, yaw/3, 0), lerpSpeed)
     end
 
-    updateArm(rightJoints,rightInput,{Upper=initC0.RightShoulder,Lower=initC0.RightElbow,Hand=initC0.RightWrist})
-    updateArm(leftJoints,leftInput,{Upper=initC0.LeftShoulder,Lower=initC0.LeftElbow,Hand=initC0.LeftWrist})
+    -- 右腕
+    if joints.RightUpper and joints.RightLower and joints.RightHand then
+        local pitch = -rightInput.Y*armSensitivity
+        local yaw = rightInput.X*armSensitivity
+        joints.RightUpper.CFrame = joints.RightUpper.CFrame:Lerp(initC0.RightUpper * CFrame.Angles(pitch/2, yaw/2, 0) * CFrame.new(0,0,zOffset), lerpSpeed)
+        joints.RightLower.CFrame = joints.RightLower.CFrame:Lerp(initC0.RightLower * CFrame.Angles(pitch/2, yaw/2, 0), lerpSpeed)
+        joints.RightHand.CFrame = joints.RightHand.CFrame:Lerp(initC0.RightHand * CFrame.Angles(pitch/3, yaw/3, 0), lerpSpeed)
+    end
+end)
+
+-- =============================================
+-- CHARACTER MOVEMENT
+-- =============================================
+RunService.RenderStepped:Connect(function()
+    local moveDir = Vector3.zero
+    moveDir += Vector3.new(leftInput.X,0,-leftInput.Y)
+    humanoid:Move(moveDir,true)
 end)
 
 -- =============================================
@@ -151,6 +158,8 @@ end)
 -- =============================================
 if not PermanentDeathEnabled then
     humanoid.HealthChanged:Connect(function(health)
-        if health <= 0 then humanoid.Health = humanoid.MaxHealth end
+        if health <= 0 then
+            humanoid.Health = humanoid.MaxHealth
+        end
     end)
 end
