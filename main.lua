@@ -3,7 +3,7 @@
 -- =============================================
 local PermanentDeathEnabled = false
 local control = "mobile"
-local armStretch = 2 -- 腕を肩から手首まで伸ばす倍率
+local armStretch = 2 -- 肩から手首まで伸ばす倍率
 
 -- =============================================
 -- SERVICES
@@ -59,6 +59,21 @@ local sensitivity = 1.5
 local lerpSpeed = 0.15
 
 -- =============================================
+-- STORE ORIGINAL SIZES (for armStretch fix)
+-- =============================================
+local originalSizes = {}
+if rightJoints then
+    for k,part in pairs(rightJoints.Parts) do
+        originalSizes["Right"..k] = part.Size
+    end
+end
+if leftJoints then
+    for k,part in pairs(leftJoints.Parts) do
+        originalSizes["Left"..k] = part.Size
+    end
+end
+
+-- =============================================
 -- CREATE MOBILE STICKS
 -- =============================================
 local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
@@ -86,6 +101,9 @@ end
 local leftFrame,leftStick = createStick("left")
 local rightFrame,rightStick = createStick("right")
 
+-- =============================================
+-- STICK HANDLER
+-- =============================================
 local function stickHandler(stick, frame, updateFunc)
     local dragging = false
     local center = stick.Position
@@ -115,18 +133,19 @@ stickHandler(leftStick,leftFrame,function(vec) leftInput = vec end)
 stickHandler(rightStick,rightFrame,function(vec) rightInput = vec end)
 
 -- =============================================
--- UPDATE LOOP (腕VR)
+-- UPDATE LOOP (ARM VR NATURAL)
 -- =============================================
 RunService.RenderStepped:Connect(function()
-    local function updateArm(joints,input,initC0)
+    local function updateArm(joints,input,initC0,side)
         if not joints then return end
 
         local pitch = -input.Y * sensitivity
         local yaw = input.X * sensitivity
 
-        -- スケールで伸ばす
-        for _,part in pairs(joints.Parts) do
-            part.Size = Vector3.new(part.Size.X, part.Size.Y*armStretch, part.Size.Z)
+        -- 肩から手首まで腕を伸ばす (fixed)
+        for partName,part in pairs(joints.Parts) do
+            local key = side..partName
+            part.Size = Vector3.new(originalSizes[key].X, originalSizes[key].Y*armStretch, originalSizes[key].Z)
         end
 
         -- 肩
@@ -134,16 +153,16 @@ RunService.RenderStepped:Connect(function()
         joints.Upper.C0 = joints.Upper.C0:Lerp(targetShoulder, lerpSpeed)
 
         -- 肘
-        local targetElbow = initC0.Lower * CFrame.Angles(pitch/2, yaw/2, 0)
+        local targetElbow = initC0.Lower * CFrame.Angles(pitch/2, yaw/2,0)
         joints.Lower.C0 = joints.Lower.C0:Lerp(targetElbow, lerpSpeed)
 
         -- 手首
-        local targetWrist = initC0.Hand * CFrame.Angles(pitch/3, yaw/3, 0)
+        local targetWrist = initC0.Hand * CFrame.Angles(pitch/3, yaw/3,0)
         joints.Hand.C0 = joints.Hand.C0:Lerp(targetWrist, lerpSpeed)
     end
 
-    updateArm(rightJoints,rightInput,{Upper=initC0.RightShoulder,Lower=initC0.RightElbow,Hand=initC0.RightWrist})
-    updateArm(leftJoints,leftInput,{Upper=initC0.LeftShoulder,Lower=initC0.LeftElbow,Hand=initC0.LeftWrist})
+    updateArm(rightJoints,rightInput,{Upper=initC0.RightShoulder,Lower=initC0.RightElbow,Hand=initC0.RightWrist},"Right")
+    updateArm(leftJoints,leftInput,{Upper=initC0.LeftShoulder,Lower=initC0.LeftElbow,Hand=initC0.LeftWrist},"Left")
 end)
 
 -- =============================================
