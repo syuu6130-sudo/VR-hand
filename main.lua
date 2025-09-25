@@ -1,11 +1,8 @@
 -- =============================================
 -- SETTINGS
 -- =============================================
-local PermanentDeathEnabled = false
-local control = "mobile"
-local armStretch = 1.2 -- 肩～手首までの自然な伸び倍率
-local sensitivity = 1.5
-local lerpSpeed = 0.15
+local PermanentDeathEnabled = false -- true = PermanentDeath ON
+local control = "mobile" -- "pc" or "mobile"
 
 -- =============================================
 -- SERVICES
@@ -13,7 +10,6 @@ local lerpSpeed = 0.15
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
@@ -29,8 +25,7 @@ local function getArmJoints(side)
         return {
             Upper = upperArm:FindFirstChild(side.."Shoulder"),
             Lower = lowerArm:FindFirstChild(side.."Elbow"),
-            Hand = hand:FindFirstChild(side.."Wrist"),
-            Parts = {Upper=upperArm, Lower=lowerArm, Hand=hand}
+            Hand = hand:FindFirstChild(side.."Wrist")
         }
     end
 end
@@ -58,11 +53,14 @@ end
 -- =============================================
 local rightInput = Vector2.zero
 local leftInput = Vector2.zero
+local sensitivity = 1.2 -- 腕感度
+local lerpSpeed = 0.12 -- 自然な補間速度
 
 -- =============================================
 -- CREATE MOBILE STICKS
 -- =============================================
 local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+
 local function createStick(side)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0,120,0,120)
@@ -70,7 +68,12 @@ local function createStick(side)
     frame.BackgroundColor3 = Color3.fromRGB(50,50,50)
     frame.BackgroundTransparency = 0.3
     frame.Parent = screenGui
-    frame.Position = UDim2.new(side=="left" and 0.35 or 0.65,0,0.8,0)
+
+    if side == "left" then
+        frame.Position = UDim2.new(0.35,0,0.8,0)
+    else
+        frame.Position = UDim2.new(0.65,0,0.8,0)
+    end
 
     local stick = Instance.new("ImageButton")
     stick.Size = UDim2.new(0,60,0,60)
@@ -84,8 +87,8 @@ local function createStick(side)
     return frame, stick
 end
 
-local leftFrame,leftStick = createStick("left")
-local rightFrame,rightStick = createStick("right")
+local leftFrame, leftStick = createStick("left")
+local rightFrame, rightStick = createStick("right")
 
 local function stickHandler(stick, frame, updateFunc)
     local dragging = false
@@ -116,29 +119,23 @@ stickHandler(leftStick,leftFrame,function(vec) leftInput = vec end)
 stickHandler(rightStick,rightFrame,function(vec) rightInput = vec end)
 
 -- =============================================
--- UPDATE LOOP (自然な腕VR)
+-- UPDATE LOOP (VR風腕)
 -- =============================================
 RunService.RenderStepped:Connect(function()
     local function updateArm(joints,input,initC0)
         if not joints then return end
+        local pitch = -input.Y*sensitivity
+        local yaw = input.X*sensitivity
 
-        local pitch = -input.Y * sensitivity
-        local yaw = input.X * sensitivity
-
-        -- 肩から下まで自然に伸ばす倍率を適用
-        for _,part in pairs(joints.Parts) do
-            part.Size = Vector3.new(part.Size.X, part.Size.Y*armStretch, part.Size.Z)
-        end
-
-        -- 肩
-        local targetShoulder = initC0.Upper * CFrame.Angles(pitch, yaw, 0) * CFrame.new(0,-0.2,-0.3)
+        -- 肩回転
+        local targetShoulder = initC0.Upper * CFrame.Angles(pitch, yaw, 0) * CFrame.new(0,0,-0.2)
         joints.Upper.C0 = joints.Upper.C0:Lerp(targetShoulder, lerpSpeed)
 
-        -- 肘
+        -- 肘回転（前方に自然に曲げる）
         local targetElbow = initC0.Lower * CFrame.Angles(pitch/2, yaw/2, 0)
         joints.Lower.C0 = joints.Lower.C0:Lerp(targetElbow, lerpSpeed)
 
-        -- 手首
+        -- 手首回転（軽く補正）
         local targetWrist = initC0.Hand * CFrame.Angles(pitch/3, yaw/3, 0)
         joints.Hand.C0 = joints.Hand.C0:Lerp(targetWrist, lerpSpeed)
     end
