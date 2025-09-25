@@ -1,10 +1,10 @@
 -- =============================================
 -- SETTINGS
 -- =============================================
-local PermanentDeathEnabled = false
-local control = "mobile"
-local sensitivity = 1.2
-local lerpSpeed = 0.12
+local PermanentDeathEnabled = false -- true = PermanentDeath ON
+local control = "mobile" -- "pc" or "mobile"
+local sensitivity = 1.2 -- 腕感度
+local lerpSpeed = 0.12 -- 自然な補間速度
 
 -- =============================================
 -- SERVICES
@@ -55,9 +55,6 @@ end
 -- =============================================
 local rightInput = Vector2.zero
 local leftInput = Vector2.zero
-local leftStickFixed = false
-local rightStickFixed = false
-local armStretch = 1.5
 
 -- =============================================
 -- CREATE MOBILE STICKS
@@ -71,6 +68,7 @@ local function createStick(side)
     frame.BackgroundColor3 = Color3.fromRGB(50,50,50)
     frame.BackgroundTransparency = 0.3
     frame.Parent = screenGui
+
     frame.Position = UDim2.new(side=="left" and 0.35 or 0.65,0,0.8,0)
 
     local stick = Instance.new("ImageButton")
@@ -88,17 +86,44 @@ end
 local leftFrame, leftStick = createStick("left")
 local rightFrame, rightStick = createStick("right")
 
-local function stickHandler(stick, frame, updateFunc, fixedFlag)
+-- =============================================
+-- STICK FIX TOGGLE
+-- =============================================
+local leftStickFixed = false
+local rightStickFixed = false
+
+local function createStickToggle(name, pos, callback)
+    local btn = Instance.new("TextButton", screenGui)
+    btn.Size = UDim2.new(0,100,0,40)
+    btn.Position = pos
+    btn.Text = name
+    btn.BackgroundColor3 = Color3.fromRGB(80,80,80)
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.AutoButtonColor = true
+
+    btn.MouseButton1Click:Connect(callback)
+end
+
+createStickToggle("左スティック固定", UDim2.new(0.1,0,0.7,0), function() leftStickFixed = not leftStickFixed end)
+createStickToggle("右スティック固定", UDim2.new(0.8,0,0.7,0), function() rightStickFixed = not rightStickFixed end)
+
+-- =============================================
+-- STICK HANDLER
+-- =============================================
+local function stickHandler(stick, frame, updateFunc, fixedRef)
     local dragging = false
     local center = stick.Position
+
     stick.InputBegan:Connect(function(input)
-        if not fixedFlag() and input.UserInputType == Enum.UserInputType.Touch then dragging = true end
+        if input.UserInputType == Enum.UserInputType.Touch and not fixedRef() then dragging = true end
     end)
     stick.InputEnded:Connect(function(input)
-        if not fixedFlag() and input.UserInputType == Enum.UserInputType.Touch then
+        if input.UserInputType == Enum.UserInputType.Touch then
             dragging = false
-            stick.Position = center
-            updateFunc(Vector2.zero)
+            if not fixedRef() then
+                stick.Position = center
+                updateFunc(Vector2.zero)
+            end
         end
     end)
     stick.InputChanged:Connect(function(input)
@@ -113,29 +138,8 @@ local function stickHandler(stick, frame, updateFunc, fixedFlag)
     end)
 end
 
-stickHandler(leftStick,leftFrame,function(vec) leftInput = vec, function() return leftStickFixed end)
-stickHandler(rightStick,rightFrame,function(vec) rightInput = vec, function() return rightStickFixed end)
-
--- =============================================
--- FIXED STICK TOGGLE
--- =============================================
-local function createStickToggle(name, pos, flagRef)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0,120,0,50)
-    btn.Position = pos
-    btn.Text = name
-    btn.BackgroundColor3 = Color3.fromRGB(80,80,80)
-    btn.TextColor3 = Color3.new(1,1,1)
-    btn.TextScaled = true
-    btn.ZIndex = 10
-    btn.Parent = screenGui
-    btn.MouseButton1Click:Connect(function()
-        flagRef[1] = not flagRef[1]
-    end)
-end
-
-createStickToggle("左スティック固定", UDim2.new(0.1,0,0.6,0), {leftStickFixed})
-createStickToggle("右スティック固定", UDim2.new(0.8,0,0.6,0), {rightStickFixed})
+stickHandler(leftStick,leftFrame,function(vec) leftInput=vec end,function() return leftStickFixed end)
+stickHandler(rightStick,rightFrame,function(vec) rightInput=vec end,function() return rightStickFixed end)
 
 -- =============================================
 -- UPDATE LOOP (VR風腕)
@@ -146,15 +150,15 @@ RunService.RenderStepped:Connect(function()
         local pitch = -input.Y*sensitivity
         local yaw = input.X*sensitivity
 
-        -- 肩回転 + 少し後ろに下げる
-        local targetShoulder = initC0.Upper * CFrame.Angles(pitch, yaw, 0) * CFrame.new(0,0,-0.2)
+        -- 肩回転 + 腕を少し後ろに
+        local targetShoulder = initC0.Upper * CFrame.Angles(pitch, yaw, 0) * CFrame.new(0,0,-0.3)
         joints.Upper.C0 = joints.Upper.C0:Lerp(targetShoulder, lerpSpeed)
 
-        -- 肘回転
+        -- 肘回転（自然に前方）
         local targetElbow = initC0.Lower * CFrame.Angles(pitch/2, yaw/2, 0)
         joints.Lower.C0 = joints.Lower.C0:Lerp(targetElbow, lerpSpeed)
 
-        -- 手首回転
+        -- 手首回転（軽く補正）
         local targetWrist = initC0.Hand * CFrame.Angles(pitch/3, yaw/3, 0)
         joints.Hand.C0 = joints.Hand.C0:Lerp(targetWrist, lerpSpeed)
     end
