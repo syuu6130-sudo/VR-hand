@@ -119,8 +119,9 @@ end)
 -- ARM CONTROL SETTINGS
 -- =============================================
 local armSensitivity = 1.8
-local rightOffset = CFrame.new(1.0, -0.5, -2) -- 右手を少し左寄り
-local leftOffset  = CFrame.new(-1.0, -0.5, -2) -- 左手を少し右寄り
+-- 修正版オフセット（前に出さない）
+local rightOffset = CFrame.new(0.6, -0.5, 0) -- 少し左寄り
+local leftOffset  = CFrame.new(-0.6, -0.5, 0) -- 少し右寄り
 
 -- =============================================
 -- UPDATE LOOP
